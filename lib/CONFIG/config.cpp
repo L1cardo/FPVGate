@@ -153,7 +153,7 @@ void Config::setDefaults(void) {
     // Reset everything to 0/false and then just set anything that zero is not appropriate
     memset(&conf, 0, sizeof(conf));
     conf.version = CONFIG_VERSION | CONFIG_MAGIC;
-    conf.frequency = 1111;
+    conf.frequency = 5917;  // RaceBand Channel 8
     conf.minLap = 100;
     conf.alarm = 36;
     conf.announcerType = 2;

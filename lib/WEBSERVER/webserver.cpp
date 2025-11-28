@@ -8,6 +8,11 @@
 
 #include "debug.h"
 
+#ifdef ESP32S3
+#include "rgbled.h"
+extern RgbLed* g_rgbLed;
+#endif
+
 static const uint8_t DNS_PORT = 53;
 static IPAddress netMsk(255, 255, 255, 0);
 static DNSServer dnsServer;
@@ -16,9 +21,9 @@ static AsyncWebServer server(80);
 static AsyncEventSource events("/events");
 
 static const char *wifi_hostname = "plt";
-static const char *wifi_ap_ssid_prefix = "PhobosLT";
-static const char *wifi_ap_password = "phoboslt";
-static const char *wifi_ap_address = "20.0.0.1";
+static const char *wifi_ap_ssid_prefix = "FPVGate";
+static const char *wifi_ap_password = "fpvgate1";
+static const char *wifi_ap_address = "192.168.4.1";
 String wifi_ap_ssid;
 
 void Webserver::init(Config *config, LapTimer *lapTimer, BatteryMonitor *batMonitor, Buzzer *buzzer, Led *l) {
@@ -33,6 +38,7 @@ void Webserver::init(Config *config, LapTimer *lapTimer, BatteryMonitor *batMoni
 
     wifi_ap_ssid = String(wifi_ap_ssid_prefix) + "_" + WiFi.macAddress().substring(WiFi.macAddress().length() - 6);
     wifi_ap_ssid.replace(":", "");
+    DEBUG("WiFi AP SSID configured: %s\n", wifi_ap_ssid.c_str());
 
     WiFi.persistent(false);
     WiFi.disconnect();
@@ -91,6 +97,9 @@ void Webserver::handleWebUpdate(uint32_t currentTimeMs) {
                 buz->beep(200);
                 led->off();
                 wifiConnected = true;
+#ifdef ESP32S3
+                if (g_rgbLed) g_rgbLed->setStatus(STATUS_USER_CONNECTED);
+#endif
                 break;
             default:
                 break;
@@ -120,7 +129,9 @@ void Webserver::handleWebUpdate(uint32_t currentTimeMs) {
                 WiFi.mode(wifiMode);
                 changeTimeMs = currentTimeMs;
                 WiFi.softAPConfig(ipAddress, ipAddress, netMsk);
+                DEBUG("Starting WiFi AP: %s with password: %s\n", wifi_ap_ssid.c_str(), wifi_ap_password);
                 WiFi.softAP(wifi_ap_ssid.c_str(), wifi_ap_password);
+                DEBUG("WiFi AP started. SSID: %s\n", WiFi.softAPSSID().c_str());
                 startServices();
                 buz->beep(1000);
                 led->on(1000);
@@ -182,6 +193,11 @@ static void handleRoot(AsyncWebServerRequest *request) {
     if (captivePortal(request)) {  // If captive portal redirect instead of displaying the page.
         return;
     }
+#ifdef ESP32S3
+    // Flash green when user accesses web interface
+    extern RgbLed* g_rgbLed;
+    if (g_rgbLed) g_rgbLed->flashGreen();
+#endif
     request->send(LittleFS, "/index.html", "text/html");
 }
 

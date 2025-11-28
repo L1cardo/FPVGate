@@ -1,4 +1,23 @@
+# PlatformIO
 .pio
-.DS_Store
+.pioenvs
+.piolibdeps
+
+# IDE
 .vscode
 .idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Backups
+*.bak
+*.tmp
+
+# Build artifacts
+*.bin
+*.elf

@@ -2,6 +2,11 @@
 
 #include "debug.h"
 
+#ifdef ESP32S3
+#include "rgbled.h"
+extern RgbLed* g_rgbLed;
+#endif
+
 const uint16_t rssi_filter_q = 2000;  //  0.01 - 655.36
 const uint16_t rssi_filter_r = 40;    // 0.0001 - 65.536
 
@@ -24,6 +29,10 @@ void LapTimer::start() {
     state = RUNNING;
     buz->beep(500);
     led->on(500);
+#ifdef ESP32S3
+    // Flash green for race start
+    if (g_rgbLed) g_rgbLed->flashGreen();
+#endif
 }
 
 void LapTimer::stop() {
@@ -35,6 +44,10 @@ void LapTimer::stop() {
     memset(lapTimes, 0, sizeof(lapTimes));
     buz->beep(500);
     led->on(500);
+#ifdef ESP32S3
+    // Flash red 3 times for race reset, then turn off
+    if (g_rgbLed) g_rgbLed->flashReset();
+#endif
 }
 
 void LapTimer::handleLapTimerUpdate(uint32_t currentTimeMs) {
@@ -111,6 +124,9 @@ void LapTimer::finishLap() {
     }
     lapCount = (lapCount + 1) % LAPTIMER_LAP_HISTORY;
     lapAvailable = true;
+#ifdef ESP32S3
+    if (g_rgbLed) g_rgbLed->flashLap();
+#endif
 }
 
 uint8_t LapTimer::getRssi() {

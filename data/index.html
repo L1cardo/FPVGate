@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Phobos LapTimer</title>
+    <title>FPVGate Lap Timer</title>
     <link rel="icon" type="image/png" href="favicon.ico" />
     <link rel="stylesheet" type="text/css" href="style.css" />
     <script src="jquery-3.7.1.min.js"></script>
@@ -15,15 +15,14 @@
     <header>
       <nav>
         <div class="logo">
-          <img src="favicon.ico" alt="PLT" width="64" />
-          <h1>Phobos LapTimer</h1>
+          <img src="favicon.ico" alt="FPVGate" width="64" />
+          <h1>FPVGate</h1>
         </div>
       </nav>
       <ul class="nav-links">
         <li><a id="nav-link-config" class="tablinks active" onclick="openTab(event, 'config')">Configuration</a></li>
         <li><a id="nav-link-race" class="tablinks" onclick="openTab(event, 'race')">Race</a></li>
         <li><a id="nav-link-calib" class="tablinks" onclick="openTab(event, 'calib')">Calibration</a></li>
-        <li><a id="nav-link-ota" class="tablinks" onclick="openTab(event, 'ota')">Update</a></li>
       </ul>
     </header>
 
@@ -107,6 +106,21 @@
             <span class="val" id="bvolt"></span>
           </div>
 
+          <div class="config-item">
+            <label for="themeSelect">Theme:</label>
+            <select id="themeSelect" onchange="changeTheme()">
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+              <option value="oceanic">Material Oceanic</option>
+              <option value="deepocean">Material Deep Ocean</option>
+            </select>
+          </div>
+
+          <div class="config-item">
+            <label>Firmware Update:</label>
+            <a href="/update" target="_blank" class="update-link">Open Update Page</a>
+          </div>
+
           <div class="config-item" style="display: none">
             <label for="ssid">WiFi SSID:</label>
             <input type="text" id="ssid" maxlength="32" />
@@ -122,6 +136,9 @@
         <button id="GenerateAudioButton" onclick="generateAudio()">Test voice</button>
         <br>
         <button onclick="saveConfig()">Save Configuration</button>
+        <div class="credits">
+          <p>FPVGate - A fork of <a href="https://github.com/phobos-/PhobosLT" target="_blank">PhobosLT</a></p>
+        </div>
       </div>
 
       <div id="race" class="tabcontent">
@@ -129,6 +146,7 @@
         <div class="racebuttons">
           <button id="startRaceButton" onclick="startRace()">Start Race</button>
           <button id="stopRaceButton" onclick="stopRace()" disabled>Stop Race</button>
+          <button id="addLapButton" onclick="addManualLap()" disabled>Add Lap</button>
           <button id="clearLapsButton" onclick="clearLaps()">Clear Laps</button>
         </div>
         <table id="lapTable">
@@ -162,16 +180,14 @@
         <button onclick="saveConfig()">Save RSSI Thresholds</button>
       </div>
 
-      <div id="ota" class="tabcontent">
+      <div id="ota" class="tabcontent" style="display: none;">
         <div class="firmware-update">
-            <iframe src="http://20.0.0.1/update" width="100%" height="600px" frameborder="0"></iframe>
+            <iframe src="http://www.fpvgate.xyz/update" width="100%" height="600px" frameborder="0"></iframe>
         </div>
       </div>
     </main>
 
-    <footer>
-      <p>Powered by <a href="https://github.com/phobos-/PhobosLT" target="_blank" style="color: white">PhobosLT</a></p>
-    </footer>
+    <footer></footer>
 
     <script src="script.js"></script>
   </body>

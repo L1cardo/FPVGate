@@ -40,6 +40,7 @@ var timerInterval;
 const timer = document.getElementById("timer");
 const startRaceButton = document.getElementById("startRaceButton");
 const stopRaceButton = document.getElementById("stopRaceButton");
+const addLapButton = document.getElementById("addLapButton");
 
 const batteryVoltageDisplay = document.getElementById("bvolt");
 
@@ -57,10 +58,12 @@ var audioEnabled = false;
 var speakObjsQueue = [];
 
 onload = function (e) {
+  // Load dark mode preference
+  loadDarkMode();
+  
   config.style.display = "block";
   race.style.display = "none";
   calib.style.display = "none";
-  ota.style.display = "none";
   fetch("/config")
     .then((response) => response.json())
     .then((config) => {
@@ -83,6 +86,7 @@ onload = function (e) {
       populateFreqOutput();
       stopRaceButton.disabled = true;
       startRaceButton.disabled = false;
+      addLapButton.disabled = true;
       clearInterval(timerInterval);
       timer.innerHTML = "00:00:00s";
       clearLaps();
@@ -453,6 +457,7 @@ function doSpeak(obj) {
 
 async function startRace() {
   startRaceButton.disabled = true;
+  startRaceButton.classList.add('active');
   // Calculate time taken to say starting phrase
   const baseWordsPerMinute = 150;
   let baseWordsPerSecond = baseWordsPerMinute / 60;
@@ -471,7 +476,9 @@ async function startRace() {
   beep(1, 1, "square"); // needed for some reason to make sure we fire the first beep
   beep(500, 880, "square");
   startTimer();
+  startRaceButton.classList.remove('active');
   stopRaceButton.disabled = false;
+  addLapButton.disabled = false;
 }
 
 function stopRace() {
@@ -491,6 +498,7 @@ function stopRace() {
 
   stopRaceButton.disabled = true;
   startRaceButton.disabled = false;
+  addLapButton.disabled = true;
 
   lapNo = -1;
   lapTimes = [];
@@ -558,5 +566,46 @@ function setBandChannelIndex(freq) {
         channelSelect.selectedIndex = j;
       }
     }
+  }
+}
+
+// Theme functionality
+function changeTheme() {
+  const theme = document.getElementById('themeSelect').value;
+  if (theme === 'light') {
+    document.documentElement.removeAttribute('data-theme');
+  } else {
+    document.documentElement.setAttribute('data-theme', theme);
+  }
+  localStorage.setItem('theme', theme);
+}
+
+function loadDarkMode() {
+  const theme = localStorage.getItem('theme') || 'light';
+  const themeSelect = document.getElementById('themeSelect');
+  if (themeSelect) {
+    themeSelect.value = theme;
+    if (theme !== 'light') {
+      document.documentElement.setAttribute('data-theme', theme);
+    }
+  }
+}
+
+// Manual lap addition
+function addManualLap() {
+  // Get current timer value and convert to milliseconds
+  const timerText = timer.innerHTML;
+  const match = timerText.match(/(\d{2}):(\d{2}):(\d{2})s/);
+  if (match) {
+    const minutes = parseInt(match[1]);
+    const seconds = parseInt(match[2]);
+    const centiseconds = parseInt(match[3]);
+    const totalMs = (minutes * 60000) + (seconds * 1000) + (centiseconds * 10);
+    
+    // Calculate lap time
+    const lapTime = totalMs - (lapNo >= 0 ? lapTimes.reduce((a, b) => a + (b * 1000), 0) : 0);
+    const lapTimeSeconds = (lapTime / 1000).toFixed(2);
+    
+    addLap(lapTimeSeconds);
   }
 }

@@ -36,10 +36,11 @@
 #elif defined(ESP32S3)
 
 #define PIN_LED 2
+#define PIN_RGB_LED 48         // WS2812 RGB LED on ESP32-S3-DevKitC-1
 #define PIN_VBAT 1
 #define VBAT_SCALE 2
 #define VBAT_ADD 2
-#define PIN_RX5808_RSSI 3      // RSSI on Pin 3
+#define PIN_RX5808_RSSI 4      // RSSI on Pin 4 (GPIO3 is a strapping pin - causes boot issues!)
 #define PIN_RX5808_DATA 10     // CH1 on Pin 10
 #define PIN_RX5808_SELECT 11   // CH2 on Pin 11
 #define PIN_RX5808_CLOCK 12    // CH3 on Pin 12
