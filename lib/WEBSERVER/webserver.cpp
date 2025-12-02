@@ -11,7 +11,11 @@
 #ifdef ESP32S3
 #include "rgbled.h"
 extern RgbLed* g_rgbLed;
+#include <SD.h>
 #endif
+
+// Global storage pointer for static functions
+static Storage* g_storage = nullptr;
 
 static const uint8_t DNS_PORT = 53;
 static IPAddress netMsk(255, 255, 255, 0);
@@ -37,6 +41,7 @@ void Webserver::init(Config *config, LapTimer *lapTimer, BatteryMonitor *batMoni
     led = l;
     history = raceHist;
     storage = stor;
+    g_storage = stor;  // Set global pointer for static functions
     selftest = test;
     rx = rx5808;
 
@@ -209,9 +214,27 @@ static void handleNotFound(AsyncWebServerRequest *request) {
     if (captivePortal(request)) {  // If captive portal redirect instead of displaying the error page.
         return;
     }
+
+    String path = request->url();
+
+#ifdef ESP32S3
+    // Try SD card as a fallback for any unknown path (e.g. /sounds_*/file.mp3)
+    if (g_storage && g_storage->isSDAvailable() && SD.exists(path)) {
+        const char* contentType = "application/octet-stream";
+        if (path.endsWith(".mp3")) contentType = "audio/mpeg";
+        else if (path.endsWith(".svg")) contentType = "image/svg+xml";
+        else if (path.endsWith(".ico")) contentType = "image/x-icon";
+        else if (path.endsWith(".json")) contentType = "application/json";
+        else if (path.endsWith(".txt")) contentType = "text/plain";
+        DEBUG("[404->SD] Serving from SD fallback: %s\n", path.c_str());
+        request->send(SD, path, contentType);
+        return;
+    }
+#endif
+
     String message = F("File Not Found\n\n");
     message += F("URI: ");
-    message += request->url();
+    message += path;
     message += F("\nMethod: ");
     message += (request->method() == HTTP_GET) ? "GET" : "POST";
     message += F("\nArguments: ");
@@ -371,6 +394,57 @@ Battery Voltage:\t%0.1fv";
         led->on(200);
     });
 
+    // Serve audio files from SD card voice directories (sounds_default, sounds_rachel, etc.)
+    server.on("^\\/sounds_.+\\/.+\\.mp3$", HTTP_GET, [this](AsyncWebServerRequest *request) {
+        String path = request->url();
+        
+#ifdef ESP32S3
+        // Try SD card first if available
+        if (storage->isSDAvailable() && SD.exists(path)) {
+            DEBUG("Serving audio from SD: %s\n", path.c_str());
+            request->send(SD, path, "audio/mpeg");
+            return;
+        }
+#endif
+        
+        // Fall back to LittleFS
+        if (LittleFS.exists(path)) {
+            DEBUG("Serving audio from LittleFS: %s\n", path.c_str());
+            request->send(LittleFS, path, "audio/mpeg");
+            return;
+        }
+        
+        // File not found
+        DEBUG("Audio file not found: %s\n", path.c_str());
+        request->send(404, "text/plain", "Audio file not found");
+    });
+    
+    // Serve audio files from SD /sounds/ directory (legacy/fallback)
+    server.on("^\\/sounds\\/.+\\.mp3$", HTTP_GET, [this](AsyncWebServerRequest *request) {
+        String path = request->url();
+        
+#ifdef ESP32S3
+        // Try SD card first if available
+        if (storage->isSDAvailable() && SD.exists(path)) {
+            DEBUG("Serving audio from SD: %s\n", path.c_str());
+            request->send(SD, path, "audio/mpeg");
+            return;
+        }
+#endif
+        
+        // Fall back to LittleFS
+        if (LittleFS.exists(path)) {
+            DEBUG("Serving audio from LittleFS: %s\n", path.c_str());
+            request->send(LittleFS, path, "audio/mpeg");
+            return;
+        }
+        
+        // File not found
+        DEBUG("Audio file not found: %s\n", path.c_str());
+        request->send(404, "text/plain", "Audio file not found");
+    });
+    
+    // Serve other static files from LittleFS only
     server.serveStatic("/", LittleFS, "/").setCacheControl("max-age=600");
 
     events.onConnect([this](AsyncEventSourceClient *client) {
@@ -535,6 +609,74 @@ Battery Voltage:\t%0.1fv";
         String json = success ? "{\"status\":\"OK\",\"message\":\"SD card initialized\"}" : 
                                "{\"status\":\"ERROR\",\"message\":\"SD card init failed\"}";
         request->send(success ? 200 : 500, "application/json", json);
+        led->on(200);
+    });
+    
+    // SD card test endpoint - list files
+    server.on("/storage/sdtest", HTTP_GET, [this](AsyncWebServerRequest *request) {
+#ifdef ESP32S3
+        String response = "SD Card Test:\n\n";
+        response += "Available: " + String(storage->isSDAvailable() ? "YES" : "NO") + "\n";
+        response += "Storage Type: " + storage->getStorageType() + "\n";
+        
+        if (storage->isSDAvailable()) {
+            response += "\nRoot directories:\n";
+            File root = SD.open("/");
+            if (root) {
+                File entry = root.openNextFile();
+                while (entry) {
+                    if (entry.isDirectory()) {
+                        response += "  [DIR] " + String(entry.name()) + "\n";
+                        
+                        // List first 5 files in sounds_* directories
+                        String entryName = String(entry.name());
+                        if (entryName.startsWith("/sounds_")) {
+                            File subdir = SD.open(entry.name());
+                            if (subdir) {
+                                int count = 0;
+                                File file = subdir.openNextFile();
+                                while (file && count < 5) {
+                                    response += "    - " + String(file.name()) + " (" + String(file.size()) + " bytes)\n";
+                                    file = subdir.openNextFile();
+                                    count++;
+                                }
+                                if (count == 5) response += "    ... (more files)\n";
+                                subdir.close();
+                            }
+                        }
+                    } else {
+                        response += "  [FILE] " + String(entry.name()) + " (" + String(entry.size()) + " bytes)\n";
+                    }
+                    entry = root.openNextFile();
+                }
+                root.close();
+            } else {
+                response += "ERROR: Could not open root directory\n";
+            }
+            
+            // Test specific file
+            response += "\nTest file access:\n";
+            const char* testFile = "/sounds_adam/gate_1.mp3";
+            response += "  " + String(testFile) + ": ";
+            if (SD.exists(testFile)) {
+                File f = SD.open(testFile);
+                if (f) {
+                    response += "EXISTS, size=" + String(f.size()) + " bytes\n";
+                    f.close();
+                } else {
+                    response += "EXISTS but CANNOT OPEN\n";
+                }
+            } else {
+                response += "NOT FOUND\n";
+            }
+        } else {
+            response += "\nSD card not available!\n";
+        }
+        
+        request->send(200, "text/plain", response);
+#else
+        request->send(200, "text/plain", "SD card not supported on this platform");
+#endif
         led->on(200);
     });
 

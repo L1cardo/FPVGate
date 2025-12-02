@@ -32,6 +32,10 @@ class Storage {
     uint64_t getFreeBytes();
     String getStorageType() const { return sdAvailable ? "SD" : "LittleFS"; }
     
+    // Migration helpers
+    bool migrateSoundsToSD();
+    bool copyDirectory(const String& srcPath, const String& dstPath, bool deleteSource = false);
+    
    private:
     bool sdAvailable;
     

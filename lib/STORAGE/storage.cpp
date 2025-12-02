@@ -47,11 +47,6 @@ bool Storage::initSDDeferred() {
 
 #ifdef ESP32S3
 bool Storage::initSD() {
-    // SD card completely disabled
-    DEBUG("SD card support temporarily disabled\n");
-    return false;
-    
-    /* Commented out for now
     DEBUG("\n=== SD Card Initialization ===\n");
     DEBUG("Pin Configuration:\n");
     DEBUG("  CS   = GPIO %d\n", PIN_SD_CS);
@@ -59,24 +54,28 @@ bool Storage::initSD() {
     DEBUG("  MOSI = GPIO %d\n", PIN_SD_MOSI);
     DEBUG("  MISO = GPIO %d\n", PIN_SD_MISO);
     
+    // Initialize CS pin
+    pinMode(PIN_SD_CS, OUTPUT);
+    digitalWrite(PIN_SD_CS, HIGH);
+    
     // Create custom SPI bus for SD card
     spi = new SPIClass(HSPI);
     DEBUG("SPI bus object created\n");
     
-    // Begin SPI bus
+    // Begin SPI bus with correct pin order: SCK, MISO, MOSI, SS
     spi->begin(PIN_SD_SCK, PIN_SD_MISO, PIN_SD_MOSI, PIN_SD_CS);
     DEBUG("SPI bus initialized\n");
     
-    // Try to initialize SD card
-    DEBUG("Attempting SD.begin() at 1MHz...\n");
-    if (!SD.begin(PIN_SD_CS, *spi, 1000000, "/sd", 1, false)) {
+    // Try to initialize SD card at 10MHz (safe for short wires)
+    DEBUG("Attempting SD.begin() at 10MHz...\n");
+    if (!SD.begin(PIN_SD_CS, *spi, 10000000)) {
         DEBUG("ERROR: SD.begin() failed!\n");
         DEBUG("Possible causes:\n");
         DEBUG("  1. Card not inserted\n");
         DEBUG("  2. Card not FAT32 formatted\n");
         DEBUG("  3. Loose wiring\n");
         DEBUG("  4. Incompatible card\n");
-        DEBUG("  5. Insufficient power (3.3V required)\n");
+        DEBUG("  5. Insufficient power\n");
         spi->end();
         delete spi;
         spi = nullptr;
@@ -87,19 +86,20 @@ bool Storage::initSD() {
     if (cardType == CARD_NONE) {
         DEBUG("No SD card attached\n");
         SD.end();
+        spi->end();
         delete spi;
         spi = nullptr;
         return false;
     }
     
-    DEBUG("SD card mounted successfully\n");
+    DEBUG("✅ SD card mounted successfully\n");
     DEBUG("SD Card Type: ");
     if (cardType == CARD_MMC) {
         DEBUG("MMC\n");
     } else if (cardType == CARD_SD) {
         DEBUG("SDSC\n");
     } else if (cardType == CARD_SDHC) {
-        DEBUG("SDHC\n");
+        DEBUG("SDHC/SDXC\n");
     } else {
         DEBUG("UNKNOWN\n");
     }
@@ -107,8 +107,10 @@ bool Storage::initSD() {
     uint64_t cardSize = SD.cardSize() / (1024 * 1024);
     DEBUG("SD Card Size: %lluMB\n", cardSize);
     
+    uint64_t usedBytes = SD.usedBytes() / (1024 * 1024);
+    DEBUG("SD Card Used: %lluMB\n", usedBytes);
+    
     return true;
-    */
 }
 #endif
 
@@ -254,4 +256,111 @@ uint64_t Storage::getUsedBytes() {
 
 uint64_t Storage::getFreeBytes() {
     return getTotalBytes() - getUsedBytes();
+}
+
+bool Storage::migrateSoundsToSD() {
+#ifdef ESP32S3
+    if (!sdAvailable) {
+        DEBUG("SD card not available, cannot migrate sounds\n");
+        return false;
+    }
+    
+    // Check if sounds already exist on SD
+    if (SD.exists("/sounds")) {
+        DEBUG("Sounds directory already exists on SD card\n");
+        return true;
+    }
+    
+    // Check if sounds exist in LittleFS
+    if (!LittleFS.exists("/sounds")) {
+        DEBUG("No sounds directory in LittleFS to migrate\n");
+        return false;
+    }
+    
+    DEBUG("\n=== Migrating sounds to SD card ===\n");
+    
+    // Create sounds directory on SD
+    if (!SD.mkdir("/sounds")) {
+        DEBUG("Failed to create /sounds directory on SD\n");
+        return false;
+    }
+    
+    // Copy all files from LittleFS /sounds to SD /sounds
+    bool success = copyDirectory("/sounds", "/sounds", false);
+    
+    if (success) {
+        DEBUG("✅ Migration complete!\n");
+        DEBUG("You can now delete /sounds from LittleFS to free space\n");
+    } else {
+        DEBUG("❌ Migration failed\n");
+    }
+    
+    return success;
+#else
+    return false;
+#endif
+}
+
+bool Storage::copyDirectory(const String& srcPath, const String& dstPath, bool deleteSource) {
+    DEBUG("Copying %s to SD card...\n", srcPath.c_str());
+    
+    File srcDir = LittleFS.open(srcPath);
+    if (!srcDir || !srcDir.isDirectory()) {
+        DEBUG("Failed to open source directory: %s\n", srcPath.c_str());
+        return false;
+    }
+    
+    int fileCount = 0;
+    int errorCount = 0;
+    uint32_t totalBytes = 0;
+    
+    File file = srcDir.openNextFile();
+    while (file) {
+        if (!file.isDirectory()) {
+            String fileName = String(file.name());
+            String dstFilePath = dstPath + "/" + fileName.substring(fileName.lastIndexOf('/') + 1);
+            
+            DEBUG("  Copying: %s -> %s", fileName.c_str(), dstFilePath.c_str());
+            
+            // Open destination file on SD
+#ifdef ESP32S3
+            File dstFile = SD.open(dstFilePath, FILE_WRITE);
+            if (!dstFile) {
+                DEBUG(" [FAIL - can't open dest]\n");
+                errorCount++;
+                file = srcDir.openNextFile();
+                continue;
+            }
+            
+            // Copy data in chunks
+            uint8_t buffer[512];
+            size_t fileSize = file.size();
+            size_t bytesRead;
+            
+            while ((bytesRead = file.read(buffer, sizeof(buffer))) > 0) {
+                dstFile.write(buffer, bytesRead);
+            }
+            
+            dstFile.close();
+            totalBytes += fileSize;
+            fileCount++;
+            
+            DEBUG(" [OK - %d bytes]\n", fileSize);
+            
+            // Delete source file if requested
+            if (deleteSource) {
+                LittleFS.remove(fileName);
+                DEBUG("  Deleted source file\n");
+            }
+#endif
+        }
+        file = srcDir.openNextFile();
+    }
+    
+    srcDir.close();
+    
+    DEBUG("\nCopied %d files (%d KB) with %d errors\n", 
+          fileCount, totalBytes / 1024, errorCount);
+    
+    return errorCount == 0;
 }

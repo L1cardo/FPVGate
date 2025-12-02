@@ -6,6 +6,7 @@ Get your FPVGate lap timer up and running in minutes!
 
 - ESP32-S3-DevKitC-1 board
 - RX5808 5.8GHz video receiver module ([SPI modded](https://sheaivey.github.io/rx5808-pro-diversity/docs/rx5808-spi-mod.html))
+- **MicroSD card** (FAT32 formatted, 1GB+ recommended)
 - USB-C cable (data capable)
 - 5V power supply (18650 battery + 5V regulator recommended)
 - (Optional) WS2812 RGB LED strip (1-2 LEDs)
@@ -104,15 +105,34 @@ GPIO5    ────── Positive (+)
 GND      ────── Negative (-)
 ```
 
+### MicroSD Card (Recommended for Audio Storage)
+
+```
+ESP32-S3        MicroSD Module
+GPIO39   ────── CS (Chip Select)
+GPIO36   ────── SCK (Clock)
+GPIO35   ────── MOSI (Data In)
+GPIO37   ────── MISO (Data Out)
+GND      ────── GND
+3.3V     ────── VCC
+```
+
+**Note:** SD card must be FAT32 formatted. Copy the `sounds/` folder to the SD card root to enable audio.
+
 ## First Use
 
-1. **Power on** your FPVGate device
+1. **Prepare SD Card** (if using):
+   - Format as FAT32
+   - Copy `data/sounds/` directory to SD card root
+   - Insert SD card into ESP32 before powering on
 
-2. **Connect to WiFi**:
+2. **Power on** your FPVGate device
+
+3. **Connect to WiFi**:
    - Network: `FPVGate_XXXX` (XXXX = last 4 digits of MAC address)
    - Password: `fpvgate1`
 
-3. **Open web interface**:
+4. **Open web interface**:
    - Go to: `http://www.fpvgate.xyz` or `http://192.168.4.1`
 
 4. **Configure your settings** (Configuration tab):

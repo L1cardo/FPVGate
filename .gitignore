@@ -34,3 +34,20 @@ api_key.txt
 # Python
 __pycache__/
 *.py[cod]
+
+# WARP temporary files
+.warp/
+
+# Voice generation output (too large for git)
+data_full_voices/
+data_minimal/
+data/sounds_default/
+data/sounds_rachel/
+data/sounds_adam/
+data/sounds_antoni/
+
+# SD card staging directory
+sd_card/
+
+# Large generated binaries
+*.littlefs.bin

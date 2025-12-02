@@ -2,6 +2,35 @@
 
 All notable changes to FPVGate will be documented in this file.
 
+## [1.2.1] - 2024-12-01
+
+### Added
+- **SD Card Storage Support** - Audio files now stored on MicroSD card
+- SD card pin configuration: GPIO39 (CS), GPIO36 (SCK), GPIO35 (MOSI), GPIO37 (MISO)
+- Automatic sound migration from LittleFS to SD card on first boot
+- `Storage::migrateSoundsToSD()` - Migration utility method
+- `Storage::isSDAvailable()` - SD card status check
+- SD-aware audio file streaming with LittleFS fallback
+- Self-test diagnostics for SD card functionality
+- SD_CARD_MIGRATION_GUIDE.md documentation
+
+### Changed
+- **Partition table optimized** - LittleFS reduced from 4.4MB to 1MB
+- **OTA partition size increased** - Each slot now 2MB (was 1.8MB)
+- Audio files served from SD card first, LittleFS fallback
+- README.md updated with SD card wiring and setup
+- QUICKSTART.md updated with SD card instructions
+- WARP.md updated with SD card architecture notes
+
+### Fixed
+- Flash storage constraints - 85% more free space available
+- OTA update size limitations - Now supports 2MB firmware
+
+### Technical Details
+- Deferred SD initialization (5 seconds after boot) prevents watchdog timeout
+- Non-blocking audio streaming directly from SD card
+- Graceful degradation if SD card unavailable or fails
+
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 

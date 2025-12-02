@@ -27,6 +27,7 @@ static LapTimer timer;
 static BatteryMonitor monitor;
 
 static TaskHandle_t xTimerTask = NULL;
+static bool sdInitAttempted = false;
 
 static void parallelTask(void *pvArgs) {
     for (;;) {
@@ -90,4 +91,23 @@ void loop() {
     uint32_t currentTimeMs = millis();
     timer.handleLapTimerUpdate(currentTimeMs);
     ElegantOTA.loop();
+    
+    // Initialize SD card after boot (deferred to prevent watchdog timeout)
+    // Try once after 5 seconds of uptime
+    if (!sdInitAttempted && currentTimeMs > 5000) {
+        sdInitAttempted = true;
+        DEBUG("\n=== Deferred SD card initialization ===\n");
+        
+        if (storage.initSDDeferred()) {
+            DEBUG("SD card ready, attempting sound migration...\n");
+            
+            // Migrate sounds from LittleFS to SD card
+            if (storage.migrateSoundsToSD()) {
+                DEBUG("Sound files migrated successfully!\n");
+                DEBUG("Recommend: delete /sounds from LittleFS to reclaim space\n");
+            }
+        } else {
+            DEBUG("SD card not available - using LittleFS only\n");
+        }
+    }
 }

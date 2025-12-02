@@ -118,9 +118,24 @@ TestResult SelfTest::testSDCard() {
     uint64_t cardSize = storage->getTotalBytes();
     uint64_t usedBytes = storage->getUsedBytes();
     
+    // Check for voice directories
+    int voiceDirsFound = 0;
+    const char* voiceDirs[] = {"sounds_default", "sounds_rachel", "sounds_adam", "sounds_antoni"};
+    for (int i = 0; i < 4; i++) {
+        String path = String("/") + voiceDirs[i];
+        if (SD.exists(path)) {
+            voiceDirsFound++;
+        }
+    }
+    
+    // Check for a sample audio file
+    bool sampleFileExists = SD.exists("/sounds_default/gate_1.mp3");
+    
     result.passed = true;
     result.details = String("Size: ") + String(cardSize / (1024*1024)) + "MB, " +
-                    "Used: " + String(usedBytes / 1024) + "KB";
+                    "Used: " + String(usedBytes / 1024) + "KB, " +
+                    "Voices: " + String(voiceDirsFound) + "/4" +
+                    (sampleFileExists ? ", Audio OK" : ", Audio Missing");
     result.duration_ms = millis() - start;
 #else
     result.passed = false;

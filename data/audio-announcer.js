@@ -18,6 +18,19 @@ class AudioAnnouncer {
         this.piperLoaded = false;
         this.ttsEngine = 'piper';  // Default to Piper TTS
         
+        // Voice directory mapping
+        this.voiceDirectories = {
+            'default': 'sounds_default',  // Sarah (Energetic Female)
+            'rachel': 'sounds_rachel',    // Rachel (Calm Female)
+            'adam': 'sounds_adam',        // Adam (Deep Male)
+            'antoni': 'sounds_antoni',    // Antoni (Male)
+            'piper': 'sounds'             // PiperTTS uses fallback (no pre-recorded)
+        };
+        
+        // Load selected voice from localStorage
+        this.selectedVoice = localStorage.getItem('selectedVoice') || 'default';
+        console.log('[AudioAnnouncer] Selected voice:', this.selectedVoice);
+        
         // Pre-recorded audio cache
         this.audioCache = new Map();
         this.preloadedAudios = new Set();
@@ -311,15 +324,18 @@ class AudioAnnouncer {
      * Returns null if no mapping exists
      */
     mapTextToAudio(text) {
+        // Get voice directory based on selection
+        const voiceDir = this.voiceDirectories[this.selectedVoice] || 'sounds_default';
+        
         // Normalize text: lowercase, trim, remove extra whitespace
         const lower = text.toLowerCase().trim().replace(/\s+/g, ' ');
         
         // Race control phrases (exact matches)
-        if (lower === 'arm your quad') return 'sounds/arm_your_quad.mp3';
-        if (lower === 'starting on the tone in less than five') return 'sounds/starting_tone.mp3';
-        if (lower === 'race complete') return 'sounds/race_complete.mp3';
-        if (lower === 'race stopped') return 'sounds/race_stopped.mp3';
-        if (lower.includes('gate 1')) return 'sounds/gate_1.mp3';
+        if (lower === 'arm your quad') return `${voiceDir}/arm_your_quad.mp3`;
+        if (lower === 'starting on the tone in less than five') return `${voiceDir}/starting_tone.mp3`;
+        if (lower === 'race complete') return `${voiceDir}/race_complete.mp3`;
+        if (lower === 'race stopped') return `${voiceDir}/race_stopped.mp3`;
+        if (lower.includes('gate 1')) return `${voiceDir}/gate_1.mp3`;
         
         // Test voice
         if (lower.startsWith('testing sound for pilot')) {
@@ -327,7 +343,7 @@ class AudioAnnouncer {
             const pilotNameInput = document.getElementById('pname');
             const pilotName = (pilotNameInput?.value || '').toLowerCase().trim();
             if (pilotName) {
-                return `sounds/test_sound_${pilotName}.mp3`;
+                return `${voiceDir}/test_sound_${pilotName}.mp3`;
             }
         }
         
@@ -339,7 +355,7 @@ class AudioAnnouncer {
             if (lapNum >= 1 && lapNum <= 50) {
                 // Check if this is a simple "lap X" without pilot name
                 if (lower === `lap ${lapNum}` || lower.startsWith(`lap ${lapNum}`)) {
-                    return `sounds/lap_${lapNum}.mp3`;
+                    return `${voiceDir}/lap_${lapNum}.mp3`;
                 }
             }
         }
@@ -355,14 +371,14 @@ class AudioAnnouncer {
             // Check for pilot name + lap patterns
             if (lower.includes(phoneticName)) {
                 if (lower.includes('2 laps') || lower.includes('2laps')) {
-                    return `sounds/${fileName}_2laps.mp3`;
+                    return `${voiceDir}/${fileName}_2laps.mp3`;
                 }
                 if (lower.includes('3 laps') || lower.includes('3laps')) {
-                    return `sounds/${fileName}_3laps.mp3`;
+                    return `${voiceDir}/${fileName}_3laps.mp3`;
                 }
                 if (lower.includes('lap') && !lower.match(/lap\s+\d+/)) {
                     // "pilot lap" but not "pilot lap 5"
-                    return `sounds/${fileName}_lap.mp3`;
+                    return `${voiceDir}/${fileName}_lap.mp3`;
                 }
             }
         }
@@ -395,9 +411,12 @@ class AudioAnnouncer {
         const phoneticName = (phoneticInput?.value || pilotNameInput?.value || pilot).toLowerCase().trim();
         const fileName = phoneticName.replace(/\s+/g, '_');
         
+        // Get voice directory
+        const voiceDir = this.voiceDirectories[this.selectedVoice] || 'sounds_default';
+        
         try {
             // Try to use pre-recorded pilot name + lap
-            const pilotLapPath = `sounds/${fileName}_lap.mp3`;
+            const pilotLapPath = `${voiceDir}/${fileName}_lap.mp3`;
             console.log('[AudioAnnouncer] Trying complex speech with pilot:', pilotLapPath);
             if (await this.hasPrerecordedAudio(pilotLapPath)) {
                 console.log('[AudioAnnouncer] Using complex speech with pre-recorded chunks');
@@ -437,10 +456,13 @@ class AudioAnnouncer {
             return;
         }
         
+        // Get voice directory
+        const voiceDir = this.voiceDirectories[this.selectedVoice] || 'sounds_default';
+        
         // ElevenLabs voice - try pre-recorded files first
         try {
             // Check if we have pre-recorded "Lap X" file
-            const lapPath = `sounds/lap_${lapNumber}.mp3`;
+            const lapPath = `${voiceDir}/lap_${lapNumber}.mp3`;
             if (lapNumber >= 1 && lapNumber <= 50 && await this.hasPrerecordedAudio(lapPath)) {
                 console.log('[AudioAnnouncer] Using pre-recorded lap number:', lapPath);
                 await this.playPrerecorded(lapPath);
@@ -496,6 +518,9 @@ class AudioAnnouncer {
             return;
         }
         
+        // Get voice directory
+        const voiceDir = this.voiceDirectories[this.selectedVoice] || 'sounds_default';
+        
         // ElevenLabs voice - try pre-recorded number files first
         // Split into whole and decimal parts
         const parts = numStr.split('.');
@@ -505,29 +530,29 @@ class AudioAnnouncer {
         try {
             // Speak whole number part (0-99 as words)
             if (wholePart >= 0 && wholePart <= 99) {
-                await this.playPrerecorded(`sounds/num_${wholePart}.mp3`);
+                await this.playPrerecorded(`${voiceDir}/num_${wholePart}.mp3`);
             } else {
                 // Fallback: spell out digit by digit for numbers >= 100
                 console.log('[AudioAnnouncer] Number >= 100, using digit-by-digit:', wholePart);
                 for (const char of parts[0]) {
-                    await this.playPrerecorded(`sounds/num_${char}.mp3`);
+                    await this.playPrerecorded(`${voiceDir}/num_${char}.mp3`);
                 }
             }
             
             // Speak decimal part if exists
             if (decimalPart) {
-                await this.playPrerecorded('sounds/point.mp3');
+                await this.playPrerecorded(`${voiceDir}/point.mp3`);
                 
                 // Parse decimal as a number (e.g., "44" -> 44, "04" -> 4)
                 const decimalNum = parseInt(decimalPart);
                 
                 if (decimalNum >= 0 && decimalNum <= 99) {
-                    await this.playPrerecorded(`sounds/num_${decimalNum}.mp3`);
+                    await this.playPrerecorded(`${voiceDir}/num_${decimalNum}.mp3`);
                 } else {
                     // Fallback: spell out digit by digit
                     console.log('[AudioAnnouncer] Decimal >= 100, using digit-by-digit:', decimalNum);
                     for (const char of decimalPart) {
-                        await this.playPrerecorded(`sounds/num_${char}.mp3`);
+                        await this.playPrerecorded(`${voiceDir}/num_${char}.mp3`);
                     }
                 }
             }
@@ -575,6 +600,21 @@ class AudioAnnouncer {
      */
     setRate(rate) {
         this.rate = parseFloat(rate);
+    }
+    
+    /**
+     * Change voice and clear audio cache
+     */
+    setVoice(voice) {
+        console.log('[AudioAnnouncer] Changing voice to:', voice);
+        this.selectedVoice = voice;
+        localStorage.setItem('selectedVoice', voice);
+        
+        // Clear audio cache so new voice files are loaded
+        this.audioCache.clear();
+        this.preloadedAudios.clear();
+        
+        console.log('[AudioAnnouncer] Voice changed, cache cleared');
     }
 
     /**

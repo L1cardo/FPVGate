@@ -23,7 +23,15 @@ FPVGate is a lap timer that measures the time it takes to complete a lap by dete
 - 2-3 inch whoops and micro quads
 - Solo training and improvement tracking
 
-## NEW in v1.2.0 - System Diagnostics & Enhanced Features
+## NEW in v1.2.1 - SD Card Storage Expansion
+
+**SD Card Storage** - Offload audio files to SD card, freeing 85% of ESP32 flash memory  
+**Automatic Migration** - Sounds auto-copy from flash to SD card on first boot  
+**Expanded Capacity** - Support for 2MB OTA updates (vs 1.8MB before)  
+**Graceful Fallback** - System works from LittleFS if SD card unavailable  
+**Optimized Partitions** - 1MB LittleFS (web UI) + unlimited SD storage (audio)  
+
+## v1.2.0 - System Diagnostics & Enhanced Features
 
 **System Self-Test** - Comprehensive hardware/software diagnostics in Configuration page  
 **PiperTTS Integration** - Lower latency TTS with exclusive mode (no pre-recorded file attempts)  
@@ -49,10 +57,11 @@ FPVGate is a lap timer that measures the time it takes to complete a lap by dete
 
 - **Single Node RSSI Timing** - Accurate lap detection via 5.8GHz signal strength  
 - **ESP32-S3 Support** - Optimized for ESP32-S3-DevKitC-1  
+- **SD Card Storage** - Audio files stored on SD card, 85% more free flash space  
 - **System Self-Test** - Comprehensive diagnostics testing all hardware/software components  
 - **RGB LED Indicators** - Visual feedback with 10 presets including customizable colors  
 - **Web Interface** - Modern Material Design UI with **23 theme options**  
-- **Dual TTS System** - ElevenLabs pre-recorded + PiperTTS (lower latency) with smart fallback  
+- **Dual TTS System** - ElevenLabs pre-recorded + PiperTTS (lower latency) with smart fallback
 - **Natural Voice Announcements** - Natural number pronunciation ("eleven point forty-four")  
 - **Phonetic Name Support** - Custom TTS pronunciation for pilot names  
 - **Real-time RSSI Graph** - Visual calibration with live feedback  
@@ -88,6 +97,7 @@ The ESP32-S3 runs a web server that you connect to via WiFi. Configuration, race
 |-----------|-------------|
 | **ESP32-S3-DevKitC-1** | Main controller with WiFi |
 | **RX5808 Module** | 5.8GHz video receiver ([SPI mod required](https://sheaivey.github.io/rx5808-pro-diversity/docs/rx5808-spi-mod.html)) |
+| **MicroSD Card** | FAT32 formatted, for audio storage (1GB+ recommended) |
 | **5V Power Supply** | 18650 battery + 5V regulator recommended |
 
 ### Optional Components
@@ -133,9 +143,21 @@ GPIO5    ────── Positive (+)
 GND      ────── Negative (-)
 ```
 
+#### MicroSD Card (Recommended)
+```
+ESP32-S3        MicroSD Module
+GPIO39   ────── CS (Chip Select)
+GPIO36   ────── SCK (Clock)
+GPIO35   ────── MOSI (Data In)
+GPIO37   ────── MISO (Data Out)
+GND      ────── GND
+3.3V     ────── VCC
+```
+
 ### Important Notes
 - **GPIO4 for RSSI**: GPIO3 is a strapping pin and will prevent flashing if connected
 - **5V Power**: Both ESP32-S3 and RX5808 run on 5V for this setup
+- **SD Card**: Must be FAT32 formatted; stores audio files to free up ESP32 flash
 - **External LEDs**: If using external RGB strip, you can use 1-2 WS2812 LEDs
 
 ## Software Setup

@@ -39,11 +39,14 @@ def main():
     print(f"\n📊 Total files per voice: {total}")
     print(f"   Grand total: {total * 4} files\n")
     
-    # Confirm
-    response = input("🚀 Generate all voices? (y/n): ")
-    if response.lower() != 'y':
-        print("Cancelled.")
-        return 0
+    # Confirm (skip if --yes flag)
+    if '--yes' not in sys.argv and '-y' not in sys.argv:
+        response = input("🚀 Generate all voices? (y/n): ")
+        if response.lower() != 'y':
+            print("Cancelled.")
+            return 0
+    else:
+        print("🚀 Auto-confirmed with --yes flag")
     
     # Generate for each voice
     for voice_key, voice_info in VOICES.items():

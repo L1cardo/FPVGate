@@ -49,11 +49,11 @@
 #define PIN_RX5808_CLOCK 12    // CH3 on Pin 12
 #define PIN_BUZZER 5
 #define BUZZER_INVERTED false
-// SD Card SPI pins (right side of board)
-#define PIN_SD_CS 42
-#define PIN_SD_SCK 41
-#define PIN_SD_MOSI 40
-#define PIN_SD_MISO 39
+// SD Card SPI pins (tested and working configuration)
+#define PIN_SD_CS 39
+#define PIN_SD_SCK 36
+#define PIN_SD_MOSI 35
+#define PIN_SD_MISO 37
 
 //ESP32
 #else
