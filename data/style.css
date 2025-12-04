@@ -1070,3 +1070,179 @@ footer {
       padding: 8px;
   }
 }
+/* ============================================
+   MOBILE RESPONSIVE STYLES
+   ============================================ */
+
+/* Tablets and smaller laptops */
+@media screen and (max-width: 1024px) {
+  main {
+    margin: 4px;
+    padding: 0 4px;
+  }
+  
+  .logo h1 {
+    font-size: 28px;
+  }
+  
+  .nav-links {
+    gap: 12px;
+  }
+  
+  .nav-links a {
+    padding: 6px 12px;
+    font-size: 14px;
+  }
+}
+
+/* Mobile devices */
+@media screen and (max-width: 768px) {
+  body {
+    font-size: 14px;
+  }
+  
+  header {
+    padding: 12px 8px;
+  }
+  
+  .logo h1 {
+    font-size: 20px;
+    margin-left: 8px;
+  }
+  
+  .logo img {
+    max-width: 36px;
+    height: auto;
+  }
+  
+  nav {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .nav-links {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    padding-top: 8px;
+    width: 100%;
+  }
+  
+  .nav-links a {
+    padding: 8px 12px;
+    font-size: 13px;
+    flex: 1 1 auto;
+    text-align: center;
+    min-width: 80px;
+  }
+  
+  main {
+    margin: 4px 0;
+    padding: 0;
+  }
+  
+  .tabcontent {
+    padding: 12px 8px;
+    border-radius: 0;
+  }
+  
+  .config-item {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .config-item > label:not(.switch) {
+    min-width: unset;
+    width: 100%;
+  }
+  
+  .config-item input[type="text"],
+  .config-item input[type="password"],
+  .config-item select {
+    width: 100%;
+  }
+  
+  #bandChannelFreq {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .racebuttons {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .racebuttons button {
+    width: 100%;
+  }
+  
+  button {
+    font-size: 14px;
+    padding: 12px 8px;
+  }
+  
+  #timer {
+    font-size: 32px;
+    margin: 12px 0;
+  }
+  
+  table {
+    min-width: 100%;
+    font-size: 13px;
+  }
+  
+  table th,
+  table td {
+    padding: 8px 4px;
+    white-space: nowrap;
+  }
+  
+  #rssiChart,
+  .chart-container {
+    height: 250px !important;
+    margin: 8px 0;
+  }
+  
+  .stat-boxes {
+    grid-template-columns: 1fr !important;
+    gap: 8px;
+  }
+  
+  .race-item h3 {
+    font-size: 16px;
+    padding-right: 80px;
+  }
+  
+  .modal-content {
+    width: 95%;
+    max-width: 95%;
+    padding: 16px;
+    margin: 12px;
+  }
+}
+
+/* Small phones */
+@media screen and (max-width: 480px) {
+  .logo h1 {
+    font-size: 18px;
+  }
+  
+  .nav-links a {
+    font-size: 12px;
+    padding: 6px 8px;
+    min-width: 70px;
+  }
+  
+  #timer {
+    font-size: 28px;
+  }
+  
+  table {
+    font-size: 11px;
+  }
+  
+  button {
+    font-size: 13px;
+    padding: 10px 6px;
+  }
+}
