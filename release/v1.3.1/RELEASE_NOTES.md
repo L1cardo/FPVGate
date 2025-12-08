@@ -62,4 +62,4 @@ Thank you to all contributors and testers who helped identify and fix these issu
 
 ## Full Changelog
 
-See [CHANGELOG.md](../../CHANGELOG.md) for complete version history.
+See [CHANGELOG.md](https://github.com/LouisHitchcock/FPVGate/blob/main/CHANGELOG.md) for complete version history.
