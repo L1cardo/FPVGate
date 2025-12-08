@@ -2117,9 +2117,8 @@ function importConfig(input) {
 let wizardState = {
   recording: false,
   data: [],
-  markers: [], // Array of {index, type: 'entry'|'exit', lap: 1|2|3}
+  markers: [], // Array of {index, lap: 1|2|3} - only peaks!
   currentLap: 1,
-  currentMarkerType: 'entry',
   chart: null,
   calculatedEnter: 0,
   calculatedExit: 0
@@ -2132,7 +2131,6 @@ function startCalibrationWizard() {
     data: [],
     markers: [],
     currentLap: 1,
-    currentMarkerType: 'entry',
     chart: null,
     calculatedEnter: 0,
     calculatedExit: 0
@@ -2230,6 +2228,20 @@ function drawWizardChart() {
   const maxRssi = Math.max(...rssiValues);
   const rssiRange = maxRssi - minRssi;
   
+  // Apply visual smoothing with moving average (window size 15 for smoother appearance)
+  // IMPORTANT: This is ONLY for visual display - does NOT affect actual data
+  const smoothedRssi = [];
+  const windowSize = 15;
+  for (let i = 0; i < rssiValues.length; i++) {
+    let sum = 0;
+    let count = 0;
+    for (let j = Math.max(0, i - Math.floor(windowSize / 2)); j <= Math.min(rssiValues.length - 1, i + Math.floor(windowSize / 2)); j++) {
+      sum += rssiValues[j];
+      count++;
+    }
+    smoothedRssi.push(sum / count);
+  }
+  
   // Clear canvas
   ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--bg-primary').trim();
   ctx.fillRect(0, 0, width, height);
@@ -2243,14 +2255,35 @@ function drawWizardChart() {
   ctx.lineTo(width - padding, height - padding);
   ctx.stroke();
   
-  // Draw RSSI line
+  // Draw filled area under RSSI line (similar to SmoothieChart style)
+  ctx.fillStyle = 'rgba(0, 212, 255, 0.4)';
+  ctx.beginPath();
+  
+  for (let i = 0; i < smoothedRssi.length; i++) {
+    const x = padding + (i / (smoothedRssi.length - 1)) * chartWidth;
+    const rssi = smoothedRssi[i];
+    const y = height - padding - ((rssi - minRssi) / rssiRange) * chartHeight;
+    
+    if (i === 0) {
+      ctx.moveTo(x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
+  }
+  // Complete the filled area by drawing to bottom corners
+  ctx.lineTo(width - padding, height - padding);
+  ctx.lineTo(padding, height - padding);
+  ctx.closePath();
+  ctx.fill();
+  
+  // Draw RSSI line on top (smoothed for visual clarity)
   ctx.strokeStyle = '#00d4ff';
   ctx.lineWidth = 2;
   ctx.beginPath();
   
-  for (let i = 0; i < wizardState.data.length; i++) {
-    const x = padding + (i / (wizardState.data.length - 1)) * chartWidth;
-    const rssi = wizardState.data[i].rssi;
+  for (let i = 0; i < smoothedRssi.length; i++) {
+    const x = padding + (i / (smoothedRssi.length - 1)) * chartWidth;
+    const rssi = smoothedRssi[i];
     const y = height - padding - ((rssi - minRssi) / rssiRange) * chartHeight;
     
     if (i === 0) {
@@ -2261,22 +2294,22 @@ function drawWizardChart() {
   }
   ctx.stroke();
   
-  // Draw markers
+  // Draw peak markers
   wizardState.markers.forEach(marker => {
     const x = padding + (marker.index / (wizardState.data.length - 1)) * chartWidth;
     const rssi = wizardState.data[marker.index].rssi;
     const y = height - padding - ((rssi - minRssi) / rssiRange) * chartHeight;
     
-    ctx.fillStyle = marker.type === 'entry' ? '#ff5555' : '#ff9f43';
+    ctx.fillStyle = '#ff5555';
     ctx.beginPath();
-    ctx.arc(x, y, 6, 0, 2 * Math.PI);
+    ctx.arc(x, y, 8, 0, 2 * Math.PI);
     ctx.fill();
     
     // Draw label
     ctx.fillStyle = '#ffffff';
-    ctx.font = '12px Arial';
+    ctx.font = '14px Arial';
     ctx.textAlign = 'center';
-    ctx.fillText(`L${marker.lap} ${marker.type === 'entry' ? 'E' : 'X'}`, x, y - 12);
+    ctx.fillText(`Peak ${marker.lap}`, x, y - 12);
   });
   
   // Add click listener
@@ -2297,26 +2330,19 @@ function addWizardMarker(index) {
   // Check if we're done
   if (wizardState.currentLap > 3) return;
   
-  // Add marker
+  // Add peak marker
   wizardState.markers.push({
     index: index,
-    type: wizardState.currentMarkerType,
     lap: wizardState.currentLap
   });
   
-  // Update state
-  if (wizardState.currentMarkerType === 'entry') {
-    wizardState.currentMarkerType = 'exit';
-    updateWizardStatus(`Lap ${wizardState.currentLap}: Mark Exit Point`);
+  // Move to next lap
+  wizardState.currentLap++;
+  if (wizardState.currentLap <= 3) {
+    updateWizardStatus(`Mark Peak ${wizardState.currentLap}`);
   } else {
-    wizardState.currentLap++;
-    wizardState.currentMarkerType = 'entry';
-    if (wizardState.currentLap <= 3) {
-      updateWizardStatus(`Lap ${wizardState.currentLap}: Mark Entry Point`);
-    } else {
-      updateWizardStatus('All laps marked! Click "Calculate Thresholds"');
-      document.getElementById('wizardCalculateButton').disabled = false;
-    }
+    updateWizardStatus('All peaks marked! Click "Calculate Thresholds"');
+    document.getElementById('wizardCalculateButton').disabled = false;
   }
   
   // Enable undo button
@@ -2334,9 +2360,7 @@ function undoLastMarker() {
   
   // Update state
   wizardState.currentLap = removed.lap;
-  wizardState.currentMarkerType = removed.type;
-  
-  updateWizardStatus(`Lap ${wizardState.currentLap}: Mark ${wizardState.currentMarkerType === 'entry' ? 'Entry' : 'Exit'} Point`);
+  updateWizardStatus(`Mark Peak ${wizardState.currentLap}`);
   
   // Disable buttons if needed
   if (wizardState.markers.length === 0) {
@@ -2353,30 +2377,31 @@ function updateWizardStatus(text) {
 }
 
 function calculateThresholds() {
-  // Get entry and exit RSSI values
-  const entryMarkers = wizardState.markers.filter(m => m.type === 'entry');
-  const exitMarkers = wizardState.markers.filter(m => m.type === 'exit');
-  
-  if (entryMarkers.length !== 3 || exitMarkers.length !== 3) {
-    alert('Please mark all 3 laps before calculating thresholds');
+  if (wizardState.markers.length !== 3) {
+    alert('Please mark all 3 peaks before calculating thresholds');
     return;
   }
   
-  // Get RSSI values at marker points
-  const entryRssiValues = entryMarkers.map(m => wizardState.data[m.index].rssi);
-  const exitRssiValues = exitMarkers.map(m => wizardState.data[m.index].rssi);
+  // Get peak RSSI values
+  const peakRssiValues = wizardState.markers.map(m => wizardState.data[m.index].rssi);
   
-  // Calculate average/median
-  const avgEntryRssi = entryRssiValues.reduce((a, b) => a + b, 0) / entryRssiValues.length;
-  const avgExitRssi = exitRssiValues.reduce((a, b) => a + b, 0) / exitRssiValues.length;
+  // Calculate baseline RSSI (minimum value from all data)
+  const allRssiValues = wizardState.data.map(d => d.rssi);
+  const baselineRssi = Math.min(...allRssiValues);
   
-  // Apply safety margins
-  // Enter threshold: 85% of average entry peak (to ensure we don't miss lower peaks)
-  // Exit threshold: 110% of average exit value (to ensure we don't exit too early)
-  let calculatedEnter = Math.round(avgEntryRssi * 0.85);
-  let calculatedExit = Math.round(avgExitRssi * 1.10);
+  // Calculate average peak
+  const avgPeakRssi = peakRssiValues.reduce((a, b) => a + b, 0) / peakRssiValues.length;
   
-  // Ensure enter > exit with minimum gap
+  // Calculate thresholds as drops from peak (more intuitive and accurate)
+  // Enter: 25% down from peak (catches rising edge well into the spike)
+  // Exit: 40% down from peak (catches falling edge, still above baseline)
+  // This typically results in ~20-30 RSSI difference between entry and exit
+  const peakRange = avgPeakRssi - baselineRssi;
+  let calculatedEnter = Math.round(avgPeakRssi - (peakRange * 0.25));
+  let calculatedExit = Math.round(avgPeakRssi - (peakRange * 0.40));
+  
+  // Ensure enter > exit with minimum gap and both above baseline
+  calculatedExit = Math.max(baselineRssi + 5, calculatedExit);
   if (calculatedEnter <= calculatedExit) {
     calculatedEnter = calculatedExit + 20;
   }

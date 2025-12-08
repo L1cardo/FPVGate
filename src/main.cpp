@@ -163,6 +163,15 @@ void setup() {
     
     // WiFi mode initialization (RotorHazard mode disabled)
     selfTest.init(&storage);
+    
+    // Initialize race history with storage backend
+    // Note: This uses LittleFS initially; SD card will be mounted later in loop()
+    if (raceHistory.init(&storage)) {
+        DEBUG("Race history initialized, %d races loaded\n", raceHistory.getRaceCount());
+    } else {
+        DEBUG("Race history initialization failed\n");
+    }
+    
     ws.init(&config, &timer, &monitor, &buzzer, &led, &raceHistory, &storage, &selfTest, &rx);
     
     // Initialize USB transport
@@ -227,6 +236,13 @@ void loop() {
             if (storage.migrateSoundsToSD()) {
                 DEBUG("Sound files migrated successfully!\n");
                 DEBUG("Recommend: delete /sounds from LittleFS to reclaim space\n");
+            }
+            
+            // Reload race history from SD card
+            if (raceHistory.loadRaces()) {
+                DEBUG("Race history reloaded from SD card, %d races available\n", raceHistory.getRaceCount());
+            } else {
+                DEBUG("Race history reload from SD card failed\n");
             }
         } else {
             DEBUG("SD card not available - using LittleFS only\n");

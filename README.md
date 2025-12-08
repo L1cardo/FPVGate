@@ -177,14 +177,20 @@ Exit  ├/──────────\─
 
 ## Project Status
 
-**Current Version:** v1.3.0  
+**Current Version:** v1.3.1  
 **Platform:** ESP32-S3 (ESP32-C3 support legacy)  
 **License:** MIT  
 **Status:** Stable - actively maintained
 
 ### Recent Updates
 
-**v1.3.0 (Latest)**
+**v1.3.1 (Latest)**
+- Fixed race history storage initialization bug
+- Improved calibration wizard with 3-peak marking system
+- Enhanced threshold calculation (peak-relative instead of baseline-relative)
+- Added visual smoothing to calibration chart for easier peak identification
+
+**v1.3.0**
 - iOS/Safari full audio support with vibration feedback
 - Mobile-responsive interface for phones and tablets
 - USB Serial CDC connectivity with Electron desktop app

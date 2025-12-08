@@ -554,17 +554,17 @@
         </div>
 
         <div id="wizardMarking" style="display: none;">
-          <h3>Calibration Wizard - Mark Lap Gates</h3>
+          <h3>Calibration Wizard - Mark Lap Peaks</h3>
           <div class="wizard-instructions">
-            <p><strong>Click on the chart to mark entry and exit points for each lap:</strong></p>
+            <p><strong>Click on the chart to mark the highest point (peak) for each lap:</strong></p>
             <ul>
-              <li>Click at the <span style="color: #ff5555;">peak</span> where you entered the gate</li>
-              <li>Click where you <span style="color: #ff9f43;">exited</span> (lower signal after peak)</li>
-              <li>Repeat for all 3 laps</li>
+              <li>Click at the <span style="color: #ff5555;">highest peak</span> for each gate pass</li>
+              <li>Mark 3 peaks total (one for each lap)</li>
+              <li>Entry/Exit thresholds will be calculated automatically</li>
             </ul>
           </div>
           <div id="wizardMarkingStatus" style="margin: 12px 0; padding: 8px; background-color: var(--bg-secondary); border-radius: 4px; font-weight: bold;">
-            Lap 1: Mark Entry Point
+            Mark Peak 1
           </div>
           <div style="position: relative;">
             <canvas id="wizardChart" style="cursor: crosshair; border: 2px solid var(--border-color); border-radius: 4px;"></canvas>

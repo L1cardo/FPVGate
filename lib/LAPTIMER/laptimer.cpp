@@ -7,8 +7,11 @@
 extern RgbLed* g_rgbLed;
 #endif
 
-const uint16_t rssi_filter_q = 2000;  //  0.01 - 655.36
-const uint16_t rssi_filter_r = 40;    // 0.0001 - 65.536
+// Light Kalman filtering since hardware cap does most of the work
+// Lower Q = less filtering (hardware cap already smooths noise)
+// Lower R = faster response to real signal changes
+const uint16_t rssi_filter_q = 500;   // Light filtering with hardware cap
+const uint16_t rssi_filter_r = 50;    // Fast response
 
 void LapTimer::init(Config *config, RX5808 *rx5808, Buzzer *buzzer, Led *l) {
     conf = config;
@@ -21,12 +24,30 @@ void LapTimer::init(Config *config, RX5808 *rx5808, Buzzer *buzzer, Led *l) {
 
     stop();
     memset(rssi, 0, sizeof(rssi));
+    memset(rssi_window, 0, sizeof(rssi_window));
+    rssi_window_index = 0;
 }
 
 void LapTimer::start() {
-    DEBUG("LapTimer started\n");
+    DEBUG("\n=== RACE STARTED ===\n");
+    DEBUG("Current Thresholds:\n");
+    DEBUG("  Enter RSSI: %u\n", conf->getEnterRssi());
+    DEBUG("  Exit RSSI: %u\n", conf->getExitRssi());
+    DEBUG("  Min Lap Time: %u ms\n", conf->getMinLapMs());
+    DEBUG("\nCurrent RSSI: %u\n", rssi[rssiCount]);
+    DEBUG("\nIf laps aren't detected, your thresholds may be too high!\n");
+    DEBUG("Suggested values based on typical signal:\n");
+    DEBUG("  Enter RSSI: ~55-60 (baseline + 15)\n");
+    DEBUG("  Exit RSSI: ~48-50 (baseline + 5)\n");
+    DEBUG("Use Calibration Wizard to set optimal values.\n");
+    DEBUG("====================\n\n");
+    
     raceStartTimeMs = millis();
+    startTimeMs = raceStartTimeMs;  // Initialize start time for min lap check
     state = RUNNING;
+    rssiPeak = 0;  // Clear any spurious peak values
+    rssiPeakTimeMs = 0;
+    gateExited = true;  // Start assuming we're outside the gate
     buz->beep(500);
     led->on(500);
 #ifdef ESP32S3
@@ -41,6 +62,10 @@ void LapTimer::stop() {
     lapCountWraparound = false;
     lapCount = 0;
     rssiCount = 0;
+    rssiPeak = 0;  // Clear peak tracking
+    rssiPeakTimeMs = 0;
+    startTimeMs = 0;
+    gateExited = true;
     memset(lapTimes, 0, sizeof(lapTimes));
     buz->beep(500);
     led->on(500);
@@ -51,9 +76,29 @@ void LapTimer::stop() {
 }
 
 void LapTimer::handleLapTimerUpdate(uint32_t currentTimeMs) {
-    // always read RSSI
-    rssi[rssiCount] = round(filter.filter(rx->readRssi(), 0));
-    // DEBUG("RSSI: %u\n", rssi[rssiCount]);
+    // Read RSSI and apply two-stage filtering:
+    // 1. Kalman filter for adaptive smoothing
+    // 2. Moving average for additional noise reduction
+    uint8_t rawRssi = rx->readRssi();
+    uint8_t kalman_filtered = round(filter.filter(rawRssi, 0));
+    
+    // Small moving average (3 samples) - hardware cap provides main filtering
+    rssi_window[rssi_window_index] = kalman_filtered;
+    rssi_window_index = (rssi_window_index + 1) % 3;
+    
+    // Calculate moving average over 3 samples
+    uint16_t sum = 0;
+    for (int i = 0; i < 3; i++) {
+        sum += rssi_window[i];
+    }
+    rssi[rssiCount] = sum / 3;
+    
+    // Debug every 50 cycles (~50ms) when running
+    static uint32_t debugCounter = 0;
+    if (state == RUNNING && debugCounter++ % 50 == 0) {
+        DEBUG("Raw: %u -> Kalman: %u -> Avg: %u | Peak: %u, Time: %u ms\n", 
+              rawRssi, kalman_filtered, rssi[rssiCount], rssiPeak, currentTimeMs - startTimeMs);
+    }
 
     switch (state) {
         case STOPPED:
@@ -67,22 +112,28 @@ void LapTimer::handleLapTimerUpdate(uint32_t currentTimeMs) {
             }
             break;
         case RUNNING:
-            // Check if timer min has elapsed, start capturing peak
+            // ONLY process lap detection after minimum lap time has elapsed
             if ((currentTimeMs - startTimeMs) > conf->getMinLapMs()) {
+                // Simple logic: just capture peaks and detect laps
                 lapPeakCapture();
-            }
-
-            if (lapPeakCaptured()) {
-                finishLap();
-                startLap();
+                
+                // Check for lap completion
+                if (lapPeakCaptured()) {
+                    DEBUG("Lap triggered! Time: %u ms\n", currentTimeMs - startTimeMs);
+                    finishLap();
+                    startLap();
+                }
             }
             break;
         case CALIBRATION_WIZARD:
             // Record RSSI data without triggering lap detection
-            if (calibrationRssiCount < LAPTIMER_CALIBRATION_HISTORY) {
+            // Sample every 20ms (50Hz) for longer recording duration with good resolution
+            if (calibrationRssiCount < LAPTIMER_CALIBRATION_HISTORY && 
+                (currentTimeMs - lastCalibrationSampleMs) >= 20) {
                 calibrationRssi[calibrationRssiCount] = rssi[rssiCount];
                 calibrationTimestamps[calibrationRssiCount] = currentTimeMs;
                 calibrationRssiCount++;
+                lastCalibrationSampleMs = currentTimeMs;
             }
             break;
         default:
@@ -93,24 +144,49 @@ void LapTimer::handleLapTimerUpdate(uint32_t currentTimeMs) {
 }
 
 void LapTimer::lapPeakCapture() {
-    // Check if RSSI is on or post threshold, update RSSI peak
+    // Capture any RSSI above enter threshold as a potential peak
     if (rssi[rssiCount] >= conf->getEnterRssi()) {
-        // Check if RSSI is greater than the previous detected peak
         if (rssi[rssiCount] > rssiPeak) {
             rssiPeak = rssi[rssiCount];
             rssiPeakTimeMs = millis();
+            DEBUG("*** PEAK CAPTURED: %u at time %u ms (since lap start: %u ms) ***\n", 
+                  rssiPeak, rssiPeakTimeMs, rssiPeakTimeMs - startTimeMs);
         }
     }
 }
 
 bool LapTimer::lapPeakCaptured() {
-    return (rssi[rssiCount] < rssiPeak) && (rssi[rssiCount] < conf->getExitRssi());
+    // Lap detection with strict validation:
+    // 1. Must have captured a peak
+    // 2. Peak must have crossed enter threshold (not just noise)
+    // 3. Peak must be significantly above exit threshold (at least 5 RSSI units)
+    // 4. Current RSSI must have dropped back below exit threshold
+    
+    bool validPeak = (rssiPeak > 0) && 
+                     (rssiPeak >= conf->getEnterRssi()) && 
+                     (rssiPeak > (conf->getExitRssi() + 5));  // Peak must be well above exit
+    
+    bool droppedBelowExit = (rssi[rssiCount] < conf->getExitRssi());
+    
+    bool captured = validPeak && droppedBelowExit;
+    
+    if (captured) {
+        DEBUG("\n*** LAP DETECTED! ***\n");
+        DEBUG("  Current RSSI: %u\n", rssi[rssiCount]);
+        DEBUG("  Peak was: %u\n", rssiPeak);
+        DEBUG("  Enter threshold: %u\n", conf->getEnterRssi());
+        DEBUG("  Exit threshold: %u\n", conf->getExitRssi());
+        DEBUG("  Peak margin above exit: %d\n", rssiPeak - conf->getExitRssi());
+        DEBUG("******************\n\n");
+    }
+    
+    return captured;
 }
 
 void LapTimer::startLap() {
-    DEBUG("Lap started\n");
+    DEBUG("Lap started - Peak was %u, new lap begins\n", rssiPeak);
     startTimeMs = rssiPeakTimeMs;
-    rssiPeak = 0;
+    rssiPeak = 0;  // Reset peak for next lap
     rssiPeakTimeMs = 0;
     buz->beep(200);
     led->on(200);
@@ -160,6 +236,7 @@ void LapTimer::startCalibrationWizard() {
     DEBUG("Calibration wizard started\n");
     state = CALIBRATION_WIZARD;
     calibrationRssiCount = 0;
+    lastCalibrationSampleMs = 0;  // Reset sample timing
     memset(calibrationRssi, 0, sizeof(calibrationRssi));
     memset(calibrationTimestamps, 0, sizeof(calibrationTimestamps));
     buz->beep(300);

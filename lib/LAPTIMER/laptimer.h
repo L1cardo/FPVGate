@@ -16,7 +16,7 @@ typedef enum {
 
 #define LAPTIMER_LAP_HISTORY 10
 #define LAPTIMER_RSSI_HISTORY 100
-#define LAPTIMER_CALIBRATION_HISTORY 1000
+#define LAPTIMER_CALIBRATION_HISTORY 5000  // Increased buffer for longer recordings
 
 class LapTimer {
    public:
@@ -49,9 +49,12 @@ class LapTimer {
     uint8_t rssiCount;
     uint32_t lapTimes[LAPTIMER_LAP_HISTORY];
     uint8_t rssi[LAPTIMER_RSSI_HISTORY];
+    uint8_t rssi_window[5];  // Small window for moving average
+    uint8_t rssi_window_index;
 
     uint8_t rssiPeak;
     uint32_t rssiPeakTimeMs;
+    bool gateExited;  // Track if drone has fully exited gate after lap
 
     bool lapAvailable = false;
     
@@ -59,6 +62,7 @@ class LapTimer {
     uint16_t calibrationRssiCount;
     uint8_t calibrationRssi[LAPTIMER_CALIBRATION_HISTORY];
     uint32_t calibrationTimestamps[LAPTIMER_CALIBRATION_HISTORY];
+    uint32_t lastCalibrationSampleMs;  // Track when last sample was taken
 
     void lapPeakCapture();
     bool lapPeakCaptured();

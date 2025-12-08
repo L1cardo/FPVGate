@@ -61,3 +61,17 @@ sd_card/
 
 # Large generated binaries
 *.littlefs.bin
+
+# Temp directories and backup files
+sounds_TEMP/
+sounds_TEMP_BACKUP/
+test/
+
+# Temp documentation and config files
+CHANGES_SINCE_*.md
+FLASHING_DEFAULTS_README.md
+TIMING_CORE_ARCHITECTURE.md
+flash_with_sd.ps1
+flashing_defaults.json
+laptimer_v*.cpp
+tools/apply_frontend_defaults.html

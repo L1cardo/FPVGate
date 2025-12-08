@@ -2,6 +2,36 @@
 
 All notable changes to FPVGate will be documented in this file.
 
+## [1.3.1] - 2024-12-08
+
+### Fixed
+- **Race History Storage** - Fixed race history not being initialized with storage backend
+  - Races now properly save to SD card/LittleFS after each session
+  - Added automatic race history reload when SD card is mounted
+  - Previously, race history was not persisting across reboots
+- **Calibration Wizard Threshold Calculation** - Complete overhaul for better accuracy
+  - Now calculates thresholds as drops from peak (25% and 40%) instead of rises from baseline
+  - Entry RSSI: 25% down from peak (catches rising edge well into spike)
+  - Exit RSSI: 40% down from peak (catches falling edge, still above baseline)
+  - Typically results in ~20-30 RSSI difference (was often 60+ before)
+  - Much more accurate and intuitive threshold values
+
+### Changed
+- **Calibration Wizard UI** - Simplified to 3-peak marking system
+  - Users now only mark the 3 highest peaks (one per lap)
+  - Previously required 6 marks (entry and exit for each lap)
+  - Updated instructions to clarify peak-only marking
+- **Calibration Chart Display** - Enhanced visual smoothing
+  - Added 15-point moving average filter (visual only, doesn't affect data)
+  - Added filled area under RSSI line matching main chart style
+  - Makes peaks much easier to identify and mark accurately
+
+### Technical
+- Updated `src/main.cpp` - Added `raceHistory.init(&storage)` call
+- Updated `data/index.html` - Simplified wizard instructions
+- Updated `data/script.js` - New threshold calculation and visual smoothing
+- Cleaned up temporary files and test directories from repository
+
 ## [1.3.0] - 2024-12-04
 
 ### Added - Mobile & iOS Support

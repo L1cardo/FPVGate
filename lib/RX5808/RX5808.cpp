@@ -21,7 +21,12 @@ void RX5808::init() {
     digitalWrite(rx5808ClkPin, LOW);
     digitalWrite(rx5808DataPin, LOW);
     resetRxModule();
-    setFrequency(POWER_DOWN_FREQ_MHZ);
+    // Don't power down on init - leave module powered up and ready
+    // Set currentFrequency to 0 to force initial frequency programming
+    currentFrequency = 0;
+    recentSetFreqFlag = false;
+    // Delay to ensure module is ready before first frequency change
+    delay(50);
 }
 
 void RX5808::handleFrequencyChange(uint32_t currentTimeMs, uint16_t potentiallyNewFreq) {
