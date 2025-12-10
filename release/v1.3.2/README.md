@@ -1,6 +1,6 @@
 # FPVGate v1.3.2 - Installation Guide
 
-## 📦 What's Included
+## What's Included
 
 ### Firmware Binaries
 - `firmware-esp32s3.bin` - Main firmware for ESP32-S3 DevKitC-1
@@ -27,7 +27,7 @@
   - sounds_antoni
   - sounds_rachel
 
-## 🚀 Installation Methods
+## Installation Methods
 
 ### Method 1: OTA Update (Easiest - No USB Required)
 
@@ -130,7 +130,7 @@ pio run -e LicardoTimerS3
 
 ---
 
-## 💾 SD Card Setup (Optional but Recommended)
+## SD Card Setup (Optional but Recommended)
 
 ### Preparing SD Card
 
@@ -164,7 +164,7 @@ pio run -e LicardoTimerS3
 
 ---
 
-## 📝 After Installation
+## After Installation
 
 ### First Boot Checklist
 
@@ -173,7 +173,7 @@ pio run -e LicardoTimerS3
    - Or connect to your network in Configuration
 
 2. **Reconfigure Settings:**
-   - ⚠️ Config was reset due to version upgrade
+   - Config was reset due to version upgrade
    - Set Pilot Name, Callsign, Color
    - Set WiFi credentials (if using station mode)
    - Adjust RSSI thresholds (or use Calibration Wizard)
@@ -192,7 +192,7 @@ pio run -e LicardoTimerS3
 
 ---
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
 ### Device Won't Boot
 - **Check power supply:** 5V 2A minimum
@@ -230,7 +230,7 @@ pio run -e LicardoTimerS3
 
 ---
 
-## 📚 Documentation
+## Documentation
 
 - **User Guide:** [docs/USER_GUIDE.md](../../docs/USER_GUIDE.md)
 - **Features:** [docs/FEATURES.md](../../docs/FEATURES.md)
@@ -238,7 +238,7 @@ pio run -e LicardoTimerS3
 - **Getting Started:** [docs/GETTING_STARTED.md](../../docs/GETTING_STARTED.md)
 - **Development:** [docs/DEVELOPMENT.md](../../docs/DEVELOPMENT.md)
 
-## 🐛 Reporting Issues
+## Reporting Issues
 
 Found a bug? Please report it on GitHub:
 https://github.com/LouisHitchcock/FPVGate/issues
@@ -250,12 +250,12 @@ Include:
 - Serial output if possible
 - Expected vs actual behavior
 
-## 📄 License
+## License
 
 FPVGate is released under the GNU General Public License v3.0.
 See [LICENSE](../../LICENSE) file for details.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 Based on PhobosLT by phobos-
 Enhanced and maintained by Louis Hitchcock

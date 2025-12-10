@@ -1,4 +1,4 @@
-﻿# FPVGate User Guide
+# FPVGate User Guide
 
 Complete guide to using all features of your FPVGate lap timer.
 
@@ -54,7 +54,7 @@ Direct USB connection provides lower latency and eliminates WiFi issues.
 1. Download [Electron app from releases](https://github.com/LouisHitchcock/FPVGate/releases)
 2. Extract and run `FPVGate.exe` (Windows) or equivalent
 3. Connect ESP32-S3 via USB-C cable
-4. In Configuration → System Setup:
+4. In Configuration -> System Setup:
    - Connection mode selector appears
    - Click "USB" mode
    - Select your COM port from dropdown
@@ -74,6 +74,50 @@ Direct USB connection provides lower latency and eliminates WiFi issues.
 - Works completely offline
 - More reliable for race control
 - WiFi remains available for spectators/timing screens
+
+### WiFi Status Display
+
+A real-time status indicator at the top of the Configuration page shows your current WiFi connection state.
+
+**Status Indicators:**
+
+ **AP Mode (Blue)**
+- Device broadcasting its own WiFi network
+- Shows number of connected clients
+- Example: "AP Mode (2 Connected Clients)"
+- Or: "AP Mode (No Connected Devices)"
+
+ **Station Mode Connected (Green)**
+- Device connected to external WiFi network
+- Shows signal strength: Weak / Fair / Good / Strong
+- Example: "External Network Connected (Wifi Strength: Good)"
+- If other clients connected: "External Network Connected (3 Clients)"
+
+ **Disconnected (Red)**
+- Connection to external network failed
+- Shows: "External Network Failed - AP Mode Booting"
+- Device automatically falls back to AP mode
+
+**Updates:**
+- Status refreshes every 5 seconds automatically
+- No page refresh needed
+- Instant feedback on connection changes
+
+**Station Mode Setup:**
+1. Go to Configuration -> Network Settings
+2. Enter WiFi SSID (your network name)
+3. Enter WiFi Password
+4. Click "Apply WiFi & Reboot"
+5. Device attempts connection
+6. Status indicator shows result
+7. If connection fails: 3 orange LED flashes, fallback to AP mode
+8. If connection succeeds: Green status indicator
+
+**Troubleshooting:**
+- **Red status:** Check SSID/password spelling
+- **Stays blue:** SSID/Password not configured (AP mode only)
+- **Green then red:** Network disappeared or wrong password
+- **No status:** Refresh page or check WiFi connection
 
 ---
 
@@ -298,10 +342,10 @@ How TTS should pronounce your name.
 **Fallback:** Uses Pilot Name if empty
 
 **Examples:**
-- "Louis" → "Louie"
-- "Xavier" → "Zavier"  
-- "Nguyen" → "Win"
-- "Siobhan" → "Shiv-awn"
+- "Louis" -> "Louie"
+- "Xavier" -> "Zavier"  
+- "Nguyen" -> "Win"
+- "Siobhan" -> "Shiv-awn"
 
 #### Pilot Color
 
@@ -338,7 +382,7 @@ FPVGate detects laps by monitoring RSSI (signal strength) changes:
 #### Step 1: Prepare
 
 1. **Power on drone** and wait 30 seconds (VTx warm-up)
-2. **Check frequency** - Configuration → Pilot Info → Band/Channel
+2. **Check frequency** - Configuration -> Pilot Info -> Band/Channel
 3. **Position drone** - One gate distance away (~3-6 feet)
 4. **Navigate** to Calibration tab
 
@@ -356,11 +400,11 @@ FPVGate detects laps by monitoring RSSI (signal strength) changes:
 
 **Enter RSSI:**
 - Set **2-5 points below** observed peak
-- Example: Peak = 150 → Enter = 145
+- Example: Peak = 150 -> Enter = 145
 
 **Exit RSSI:**
 - Set **8-10 points below** Enter RSSI
-- Example: Enter = 145 → Exit = 135
+- Example: Enter = 145 -> Exit = 135
 
 **Rule:** Enter must always be higher than Exit
 
@@ -376,24 +420,24 @@ FPVGate detects laps by monitoring RSSI (signal strength) changes:
 
 ** Good Calibration:**
 ```
-RSSI  │     /\
-      │    /  \
-      │   /    \     ← Single clean peak
-Enter ├──/──────\───
-      │ /        \
-Exit  ├/──────────\─
-      └─────────────── Time
+RSSI  �     /\
+      �    /  \
+      �   /    \     ? Single clean peak
+Enter +--/------\---
+      � /        \
+Exit  +/----------\-
+      +--------------- Time
 Result: 1 lap counted 
 ```
 
 ** Bad Calibration (Thresholds too low):**
 ```
-RSSI  │   /\/\        ← Multiple peaks!
-      │  /    \
-Enter ├─/──────\───
-      │/        \
-Exit  /──────────\─
-      └─────────────── Time
+RSSI  �   /\/\        ? Multiple peaks!
+      �  /    \
+Enter +-/------\---
+      �/        \
+Exit  /----------\-
+      +--------------- Time
 Result: 3 laps counted 
 ```
 
@@ -630,6 +674,61 @@ All races are automatically saved when you stop or clear laps.
 
 ** Warning:** Deletions are permanent! Export before clearing.
 
+### Marshalling Mode (Lap Editing)
+
+**Edit race laps after completion!** Perfect for correcting false triggers or missed gates.
+
+#### Adding Laps
+
+**When to use:**
+- Missed gate detection
+- Manual timing needed
+- Correcting data gaps
+
+**How to add:**
+1. Click race to view details
+2. Find position where lap should be inserted
+3. Click "Add Lap" button (between existing laps)
+4. Enter lap time in seconds (e.g., "12.34")
+5. Click "Add"
+
+**What happens:**
+- New lap inserted at position
+- Subsequent laps renumbered automatically
+- All statistics recalculate (fastest, median, best 3, etc.)
+- Charts update immediately
+- Changes save to race history
+
+#### Removing Laps
+
+**When to use:**
+- False trigger from interference
+- Accidental manual lap
+- Data corruption
+- Wrong gate pass
+
+**How to remove:**
+1. Click race to view details
+2. Find lap to remove
+3. Click "Remove" button next to lap
+4. Confirm deletion in prompt
+
+**What happens:**
+- Lap deleted from race
+- Remaining laps renumber
+- Statistics recalculate
+- Total time adjusts
+- Charts update
+- Changes save immediately
+
+** Use Cases:**
+- **RF Interference:** Remove laps caused by radio noise
+- **Multi-Quad Sessions:** Remove detection from other pilots
+- **Technical Issues:** Clean up data from hardware problems
+- **Race Corrections:** Fix timing errors during competition
+
+** Note:** Changes are permanent! Export race before major edits.
+
 ---
 
 ## LED Control
@@ -686,7 +785,7 @@ Configure RGB LED behavior and visual effects.
 ### Pilot Colour Preset
 
 **Select:** Pilot Colour preset  
-**Effect:** Uses color from Configuration → Pilot Info → Pilot Color
+**Effect:** Uses color from Configuration -> Pilot Info -> Pilot Color
 
 **Updates:**
 - Changes automatically when you change pilot color
@@ -723,9 +822,9 @@ Configure RGB LED behavior and visual effects.
 - Good for practice/testing
 
 **When Disabled (Default):**
-- Race start → Green flash
-- Lap detected → White flash  
-- Race stop → Red triple flash
+- Race start -> Green flash
+- Lap detected -> White flash  
+- Race stop -> Red triple flash
 - Preset continues between events
 
 ---
@@ -739,7 +838,7 @@ Advanced voice configuration options.
 Customize how names and numbers are spoken.
 
 **Pilot Name Pronunciation:**
-- Set in Configuration → Pilot Info → Phonetic Name
+- Set in Configuration -> Pilot Info -> Phonetic Name
 - Falls back to Pilot Name if empty
 - Examples in [Configuration section](#pilot-info-section)
 
@@ -747,7 +846,7 @@ Customize how names and numbers are spoken.
 
 Choose what information is announced per lap.
 
-**Access:** Configuration → TTS Settings → Lap Announcement Format
+**Access:** Configuration -> TTS Settings -> Lap Announcement Format
 
 **Three Options:**
 1. Full details (pilot + lap + time)
@@ -778,7 +877,7 @@ Choose what information is announced per lap.
 - Exclusive mode (doesn't try ElevenLabs files)
 
 **Switching Engines:**
-- Configuration → TTS Settings → Voice
+- Configuration -> TTS Settings -> Voice
 - Change takes effect immediately
 - No restart required
 
@@ -812,7 +911,7 @@ Display race information on live video stream.
 
 Track battery voltage during races.
 
-**Enable:** Configuration → System Setup → Battery Monitoring toggle
+**Enable:** Configuration -> System Setup -> Battery Monitoring toggle
 
 **When Enabled:**
 - Current voltage displayed
@@ -830,7 +929,7 @@ Track battery voltage during races.
 
 23 color schemes available.
 
-**Access:** Configuration → System Setup → Theme
+**Access:** Configuration -> System Setup -> Theme
 
 **Categories:**
 - **Material Themes:** Modern, colorful (10 options)
@@ -847,7 +946,7 @@ Track battery voltage during races.
 Save and restore all settings.
 
 **Download Config:**
-1. Configuration → System Setup
+1. Configuration -> System Setup
 2. Click "Download Config"
 3. Saves as JSON file
 4. Includes ALL settings (backend + frontend)
@@ -908,7 +1007,7 @@ Save and restore all settings.
 
 ### For Troubleshooting
 
-- Run self-test first (Configuration → System Diagnostics)
+- Run self-test first (Configuration -> System Diagnostics)
 - Check Serial Monitor for debug info
 - Verify all connections with multimeter
 - Test with known-good components

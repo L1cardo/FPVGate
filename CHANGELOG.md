@@ -5,12 +5,34 @@ All notable changes to FPVGate will be documented in this file.
 ## [1.3.2] - 2024-12-10
 
 ### Added
+- **WiFi Status Display** - Real-time WiFi connection status indicator in web interface
+  - Shows AP mode with connected client count
+  - Shows Station mode with connection status and signal strength (Weak/Fair/Good/Strong)
+  - Visual indicators: AP mode (blue), STA connected (green), disconnected (red)
+  - Auto-refreshes every 5 seconds via `/api/wifi` endpoint
+  - Added `updateWiFiStatus()` and `startWiFiStatusPolling()` functions
+  - CSS styling for all WiFi status states
+- **Marshalling Mode** - Edit saved race data after completion
+  - Add or remove laps from completed races
+  - Add lap: Insert new lap time at specific position
+  - Remove lap: Delete lap from race (with confirmation)
+  - Real-time recalculation of race statistics (fastest lap, median, best 3, etc.)
+  - Full UI with lap editing controls in race history details view
+  - Changes saved to race history (SD card or LittleFS)
+  - Useful for correcting false triggers or missed laps
 - **LED Settings Persistence** - All LED configuration now saves to EEPROM and persists across reboots
   - Added `ledPreset`, `ledSpeed`, `ledFadeColor`, `ledStrobeColor`, `ledManualOverride` to config struct
   - Config version bumped to v3 for automatic migration
   - LED settings automatically restored on device boot
   - Page refresh now loads current LED state from device
   - All LED changes (/led/preset, /led/brightness, /led/speed, /led/color, /led/fadecolor, /led/strobecolor, /led/override) now save to config
+- **Race History File Structure** - Improved organization for race storage
+  - Individual race files: `/sd/races/race_<timestamp>.json`
+  - Index file: `/sd/races/races_index.json` (tracks all races)
+  - Automatic directory creation on SD card
+  - Better performance when loading/saving races
+  - Easier to manage individual race files
+  - LittleFS fallback maintains same structure
 
 ### Changed
 - **Default LED Preset** - Rainbow Wave is now the default LED effect (was Solid Colour in web UI)
@@ -18,17 +40,38 @@ All notable changes to FPVGate will be documented in this file.
 - **Frontend LED Loading** - Web interface now properly loads all LED settings from device config on page load
   - Loads preset, brightness, speed, all colors, and manual override state
   - Removed old ledMode (0-3) mapping logic in favor of direct ledPreset usage
+- **Race History Loading** - Now properly loads from individual files with index
+  - Faster loading of large race histories
+  - Better error handling for corrupted files
+  - Automatic migration from old `races.json` format
 
 ### Fixed
+- **Gate 1 Timing Bug** - Fixed Gate 1 lap time calculation
+  - Gate 1 time now correctly represents time from race start to first gate pass
+  - Previously was showing incorrect timing
+  - Lap numbering remains consistent (Gate 1, Lap 1, Lap 2, etc.)
+- **Race History Not Saving** - Fixed races not persisting to SD card
+  - Race history now properly saves after each race
+  - SD card mounting and file writing verified
+  - Individual file structure prevents data loss
 - **LED Settings Reset on Page Refresh** - LED configuration now persists properly instead of reverting to defaults
 - **Solid Colour Default Bug** - Fixed page loading with wrong LED preset (was showing Solid Colour instead of saved preset)
+- **WiFi Network Join** - Station mode now properly joins existing WiFi networks
+  - SSID and password correctly applied from configuration
+  - Fallback to AP mode if connection fails (with LED indication)
+  - Connection status properly displayed in web interface
 
 ### Technical
 - Updated `lib/CONFIG/config.h` - Added 5 new LED config fields, incremented CONFIG_VERSION to 3
 - Updated `lib/CONFIG/config.cpp` - Added getters/setters, JSON serialization, and defaults for new LED fields
-- Updated `lib/WEBSERVER/webserver.cpp` - All LED endpoints now call config setters to persist changes
+- Updated `lib/WEBSERVER/webserver.cpp` - All LED endpoints now call config setters to persist changes, added `/api/wifi` endpoint
 - Updated `src/main.cpp` - LED initialization now loads all settings from config (preset, speed, colors, override)
-- Updated `data/script.js` - Page load reads LED config and populates all UI elements accordingly
+- Updated `data/script.js` - Added WiFi status polling, marshalling mode functions, improved race history handling
+- Updated `data/index.html` - Added WiFi status display element, marshalling mode UI
+- Updated `data/style.css` - Added WiFi status indicator styling
+- Updated `lib/RACEHISTORY/racehistory.cpp` - Implemented individual file storage, added lap editing functions
+- Updated `lib/RACEHISTORY/racehistory.h` - Added `addLap()`, `removeLap()` methods
+- Updated `lib/LAPTIMER/laptimer.cpp` - Fixed Gate 1 timing calculation
 - Config struct size: ~140 bytes (well within 256 byte EEPROM reservation)
 
 ## [1.3.1] - 2024-12-08
