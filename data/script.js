@@ -3,6 +3,11 @@ let transportManager = null;
 let currentConnectionMode = 'auto'; // 'auto', 'wifi', 'usb'
 let usbConnected = false;
 let eventSource = null;
+let eventSourceReconnectTimer = null;
+let eventSourceReconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 10;
+const RECONNECT_DELAY_MS = 2000;
+let connectionStatusUpdateInterval = null;
 
 const bcf = document.getElementById("bandChannelFreq");
 const bandSelect = document.getElementById("bandSelect");
@@ -180,6 +185,12 @@ async function connectUSB(portPath) {
 }
 
 function setupWiFiEvents() {
+  // Clear any pending reconnect timer
+  if (eventSourceReconnectTimer) {
+    clearTimeout(eventSourceReconnectTimer);
+    eventSourceReconnectTimer = null;
+  }
+  
   if (eventSource) {
     eventSource.close();
   }
@@ -189,11 +200,35 @@ function setupWiFiEvents() {
     
     eventSource.addEventListener("open", function (e) {
       console.log("WiFi Events Connected");
+      eventSourceReconnectAttempts = 0; // Reset counter on successful connect
+      updateConnectionStatus('WiFi', true);
+      
+      // Update connection info every 5 seconds
+      if (connectionStatusUpdateInterval) {
+        clearInterval(connectionStatusUpdateInterval);
+      }
+      connectionStatusUpdateInterval = setInterval(() => {
+        updateConnectionStatus('WiFi', true);
+      }, 5000);
     }, false);
     
     eventSource.addEventListener("error", function (e) {
       if (e.target.readyState != EventSource.OPEN) {
-        console.log("WiFi Events Disconnected");
+        console.log("WiFi Events Disconnected - attempting reconnect...");
+        updateConnectionStatus('WiFi', false);
+        
+        // Attempt to reconnect
+        if (eventSourceReconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+          eventSourceReconnectAttempts++;
+          console.log(`Reconnect attempt ${eventSourceReconnectAttempts}/${MAX_RECONNECT_ATTEMPTS} in ${RECONNECT_DELAY_MS}ms...`);
+          
+          eventSourceReconnectTimer = setTimeout(() => {
+            console.log('Attempting EventSource reconnect...');
+            setupWiFiEvents();
+          }, RECONNECT_DELAY_MS);
+        } else {
+          console.error('Max reconnect attempts reached. Please refresh the page.');
+        }
       }
     }, false);
     
@@ -243,7 +278,59 @@ function setupUSBEvents() {
   });
 }
 
-function updateConnectionStatus(mode, connected) {
+async function updateConnectionStatus(mode, connected) {
+  // Update header indicator
+  const indicator = document.getElementById('connectionIndicator');
+  if (indicator) {
+    const dot = indicator.querySelector('.status-dot');
+    const modeEl = indicator.querySelector('.connection-mode');
+    const detailsEl = document.getElementById('connectionDetails');
+    
+    // Update connection state
+    if (connected) {
+      dot.classList.add('connected');
+    } else {
+      dot.classList.remove('connected');
+    }
+    
+    // Update mode text
+    if (modeEl) {
+      modeEl.textContent = `${mode}: ${connected ? 'Connected' : 'Disconnected'}`;
+    }
+    
+    // Build detailed info for slide-out panel
+    let details = '';
+    
+    if (mode === 'WiFi' && connected) {
+      try {
+        const response = await fetch('/api/wifi');
+        if (response.ok) {
+          const wifiData = await response.json();
+          if (wifiData.mode === 'AP') {
+            details = `SSID: ${wifiData.ssid}<br>IP: ${wifiData.ip}<br>Connected Clients: ${wifiData.clients}`;
+          } else if (wifiData.mode === 'STA') {
+            const signalQuality = wifiData.rssi > -50 ? 'Excellent' : 
+                                 wifiData.rssi > -60 ? 'Good' : 
+                                 wifiData.rssi > -70 ? 'Fair' : 'Weak';
+            details = `SSID: ${wifiData.ssid}<br>IP: ${wifiData.ip}<br>Signal: ${signalQuality} (${wifiData.rssi} dBm)`;
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch WiFi info:', err);
+        details = 'Unable to fetch WiFi details';
+      }
+    } else if (mode === 'USB' && connected) {
+      details = 'Direct serial connection<br>Zero latency';
+    } else if (!connected) {
+      details = 'Connection lost';
+    }
+    
+    if (detailsEl) {
+      detailsEl.innerHTML = details;
+    }
+  }
+  
+  // Update settings panel status (USB only)
   const statusEl = document.getElementById('comPortStatus');
   if (statusEl) {
     statusEl.style.display = 'block';
@@ -354,17 +441,19 @@ onload = async function (e) {
       maxLapsInput.value = (configData.maxLaps !== undefined) ? configData.maxLaps : 0;
       updateMaxLaps(maxLapsInput, maxLapsInput.value);
       
-      // Load pilot callsign, phonetic name, and color from localStorage (frontend-only settings)
-      const savedCallsign = localStorage.getItem('pilotCallsign') || '';
-      const savedPhonetic = localStorage.getItem('pilotPhonetic') || '';
-      const savedColor = localStorage.getItem('pilotColor') || '#0080FF';
+      // Load pilot callsign, phonetic name, and color from device config
       const callsignInput = document.getElementById('pcallsign');
       const phoneticInput = document.getElementById('pphonetic');
       const colorInput = document.getElementById('pilotColor');
-      if (callsignInput) callsignInput.value = savedCallsign;
-      if (phoneticInput) phoneticInput.value = savedPhonetic;
-      if (colorInput) {
-        colorInput.value = savedColor;
+      if (callsignInput && configData.pilotCallsign !== undefined) {
+        callsignInput.value = configData.pilotCallsign;
+      }
+      if (phoneticInput && configData.pilotPhonetic !== undefined) {
+        phoneticInput.value = configData.pilotPhonetic;
+      }
+      if (colorInput && configData.pilotColor !== undefined) {
+        const hexColor = '#' + ('000000' + configData.pilotColor.toString(16)).slice(-6).toUpperCase();
+        colorInput.value = hexColor;
         updateColorPreview();
       }
       populateFreqOutput();
@@ -384,15 +473,21 @@ onload = async function (e) {
         updateColorPreview();
       }
       
-      // Load lap format and voice selection from localStorage
-      const savedLapFormat = localStorage.getItem('lapFormat') || 'full';
-      const savedVoice = localStorage.getItem('selectedVoice') || 'default';
-      lapFormat = savedLapFormat;
-      selectedVoice = savedVoice;
+      // Load lap format and voice selection from device config
+      lapFormat = configData.lapFormat || 'full';
+      selectedVoice = configData.selectedVoice || 'default';
       const lapFormatSelect = document.getElementById('lapFormatSelect');
       const voiceSelect = document.getElementById('voiceSelect');
       if (lapFormatSelect) lapFormatSelect.value = lapFormat;
-      if (voiceSelect) voiceSelect.value = savedVoice;
+      if (voiceSelect) voiceSelect.value = selectedVoice;
+      
+      // Load and apply theme from device config
+      if (configData.theme) {
+        const savedTheme = configData.theme;
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        const themeSelect = document.getElementById('themeSelect');
+        if (themeSelect) themeSelect.value = savedTheme;
+      }
       
       // Load LED settings from config (if available)
       const ledPresetSelect = document.getElementById('ledPreset');
@@ -401,15 +496,9 @@ onload = async function (e) {
       const ledManualOverrideToggle = document.getElementById('ledManualOverride');
       const customColorSection = document.getElementById('customColorSection');
       
-      // Set defaults or load from backend config
-      if (configData.ledMode !== undefined) {
-        // Map ledMode to preset (0-3 are old modes, map to appropriate presets)
-        let preset = 1; // Default to Rainbow Wave
-        if (configData.ledMode === 0) preset = 0; // Off
-        else if (configData.ledMode === 1) preset = 3; // Green solid
-        else if (configData.ledMode === 2) preset = 2; // Red pulse
-        else if (configData.ledMode === 3) preset = 1; // Rainbow wave
-        if (ledPresetSelect) ledPresetSelect.value = preset;
+      // Load ledPreset from backend config
+      if (configData.ledPreset !== undefined && ledPresetSelect) {
+        ledPresetSelect.value = configData.ledPreset;
       }
       
       if (configData.ledBrightness !== undefined && ledBrightnessInput) {
@@ -423,14 +512,9 @@ onload = async function (e) {
         ledColorInput.value = hexColor;
       }
       
-      // Show custom color section if preset 9 is selected
-      if (ledPresetSelect && customColorSection) {
-        customColorSection.style.display = (parseInt(ledPresetSelect.value) === 9) ? 'flex' : 'none';
-      }
-      
-      // Initialize LED preset UI on page load
+      // Initialize LED preset UI on page load (UI only, no command sent)
       if (ledPresetSelect) {
-        changeLedPreset();
+        updateLedPresetUI();
       }
       
       // Load Gate LED settings from config
@@ -671,15 +755,21 @@ function autoSaveConfig() {
 }
 
 async function saveConfig() {
-  // Save frontend-only settings to localStorage
+  // Get pilot settings
   const callsignInput = document.getElementById('pcallsign');
   const phoneticInput = document.getElementById('pphonetic');
   const colorInput = document.getElementById('pilotColor');
-  if (callsignInput) localStorage.setItem('pilotCallsign', callsignInput.value);
-  if (phoneticInput) localStorage.setItem('pilotPhonetic', phoneticInput.value);
-  if (colorInput) localStorage.setItem('pilotColor', colorInput.value);
+  const themeSelect = document.getElementById('themeSelect');
+  const voiceSelect = document.getElementById('voiceSelect');
+  const lapFormatSelect = document.getElementById('lapFormatSelect');
   
-  // Save backend settings
+  // Convert hex color to integer
+  let pilotColorInt = 0x0080FF; // default
+  if (colorInput && colorInput.value) {
+    pilotColorInt = parseInt(colorInput.value.replace('#', ''), 16);
+  }
+  
+  // Save all settings to device
   const rssiSensitivitySelect = document.getElementById('rssiSensitivity');
   const configData = {
     freq: frequency,
@@ -692,6 +782,12 @@ async function saveConfig() {
     maxLaps: maxLaps,
     rssiSens: rssiSensitivitySelect ? parseInt(rssiSensitivitySelect.value) : 1,
     name: pilotNameInput.value,
+    pilotCallsign: callsignInput ? callsignInput.value : '',
+    pilotPhonetic: phoneticInput ? phoneticInput.value : '',
+    pilotColor: pilotColorInt,
+    theme: themeSelect ? themeSelect.value : 'oceanic',
+    selectedVoice: voiceSelect ? voiceSelect.value : 'default',
+    lapFormat: lapFormatSelect ? lapFormatSelect.value : 'full',
     ssid: ssidInput.value,
     pwd: pwdInput.value,
   };
@@ -995,8 +1091,8 @@ function saveLapFormat() {
   const lapFormatSelect = document.getElementById('lapFormatSelect');
   if (lapFormatSelect) {
     lapFormat = lapFormatSelect.value;
-    localStorage.setItem('lapFormat', lapFormat);
     console.log('Lap format saved:', lapFormat);
+    autoSaveConfig(); // Save to device
   }
 }
 
@@ -1004,7 +1100,6 @@ function saveVoiceSelection() {
   const voiceSelect = document.getElementById('voiceSelect');
   if (voiceSelect) {
     selectedVoice = voiceSelect.value;
-    localStorage.setItem('selectedVoice', selectedVoice);
     console.log('Voice selection saved:', selectedVoice);
     
     // Update audioAnnouncer voice (this clears cache and updates voice directory)
@@ -1014,17 +1109,17 @@ function saveVoiceSelection() {
     
     // If PiperTTS selected, use piper engine, otherwise use webspeech for fallback
     if (selectedVoice === 'piper') {
-      localStorage.setItem('ttsEngine', 'piper');
       if (audioAnnouncer) {
         audioAnnouncer.setTtsEngine('piper');
       }
     } else {
       // ElevenLabs voices use webspeech for fallback
-      localStorage.setItem('ttsEngine', 'webspeech');
       if (audioAnnouncer) {
         audioAnnouncer.setTtsEngine('webspeech');
       }
     }
+    
+    autoSaveConfig(); // Save to device
   }
 }
 
@@ -1125,7 +1220,8 @@ async function sendLedCommand(endpoint, params) {
 }
 
 // LED control functions
-function changeLedPreset() {
+// Update LED preset UI only (show/hide color sections, speed settings)
+function updateLedPresetUI() {
   const presetSelect = document.getElementById('ledPreset');
   const solidColorSection = document.getElementById('solidColorSection');
   const fadeColorSection = document.getElementById('fadeColorSection');
@@ -1153,6 +1249,15 @@ function changeLedPreset() {
   if (speedNote) {
     speedNote.style.display = hideSpeed ? 'none' : 'block';
   }
+}
+
+// Change LED preset (UI update + send command to device)
+function changeLedPreset() {
+  const presetSelect = document.getElementById('ledPreset');
+  const preset = parseInt(presetSelect.value);
+  
+  // Update UI
+  updateLedPresetUI();
   
   // If Pilot Colour preset (9) is selected, use pilot color
   if (preset === 9) {
@@ -1162,6 +1267,7 @@ function changeLedPreset() {
       .catch(err => console.error('Failed to set pilot color:', err));
   }
   
+  // Send preset command to device
   sendLedCommand('preset', { preset })
     .then(data => console.log('LED preset changed:', data))
     .catch(err => console.error('Failed to change LED preset:', err));
@@ -1497,8 +1603,8 @@ function changeTheme() {
     } else {
       document.documentElement.setAttribute('data-theme', theme);
     }
-    localStorage.setItem('theme', theme);
     updateThemeLogos(theme);
+    autoSaveConfig(); // Save to device
   }
   
   function updateThemeLogos(theme) {
@@ -1516,16 +1622,16 @@ function changeTheme() {
   }
 
 function loadDarkMode() {
-    const theme = localStorage.getItem('theme') || 'oceanic';
+    // Theme is now loaded from device config on page load
+    // This function is kept for compatibility but may not be needed
     const themeSelect = document.getElementById('themeSelect');
-    if (themeSelect) {
-      themeSelect.value = theme;
+    if (themeSelect && themeSelect.value) {
+      const theme = themeSelect.value;
       if (theme !== 'lighter') {
         document.documentElement.setAttribute('data-theme', theme);
       }
+      updateThemeLogos(theme);
     }
-    // Apply correct logos on initial load
-    updateThemeLogos(theme);
   }
 
 // Manual lap addition
@@ -1627,51 +1733,59 @@ function updateStatsBoxes() {
     return;
   }
   
-  // Fastest Lap
-  const fastest = Math.min(...lapTimes);
-  const fastestIndex = lapTimes.indexOf(fastest);
-  document.getElementById('statFastest').textContent = `${fastest.toFixed(2)}s`;
-  document.getElementById('statFastestLapNo').textContent = fastestIndex === 0 ? 'Gate 1' : `Lap ${fastestIndex}`;
+  // Fastest Lap (excluding Gate 1 which is just passing through to start)
+  const validLaps = lapTimes.slice(1); // Skip Gate 1
+  if (validLaps.length === 0) {
+    document.getElementById('statFastest').textContent = '--';
+    document.getElementById('statFastestLapNo').textContent = 'Need 1 lap';
+  } else {
+    const fastest = Math.min(...validLaps);
+    const fastestIndex = validLaps.indexOf(fastest) + 1; // +1 to account for skipped Gate 1
+    document.getElementById('statFastest').textContent = `${fastest.toFixed(2)}s`;
+    document.getElementById('statFastestLapNo').textContent = `Lap ${fastestIndex}`;
+  }
   
-  // Fastest 3 Consecutive Laps (for RaceGOW format)
-  if (lapTimes.length >= 3) {
+  // Fastest 3 Consecutive Laps (for RaceGOW format) - skip Gate 1
+  if (validLaps.length >= 3) {
     let fastestConsecTime = Infinity;
     let fastestConsecStart = -1;
     
-    // Check all consecutive 3-lap windows
-    for (let i = 0; i <= lapTimes.length - 3; i++) {
-      const consecTime = lapTimes[i] + lapTimes[i + 1] + lapTimes[i + 2];
+    // Check all consecutive 3-lap windows (starting from Lap 1, not Gate 1)
+    for (let i = 0; i <= validLaps.length - 3; i++) {
+      const consecTime = validLaps[i] + validLaps[i + 1] + validLaps[i + 2];
       if (consecTime < fastestConsecTime) {
         fastestConsecTime = consecTime;
-        fastestConsecStart = i;
+        fastestConsecStart = i + 1; // +1 to account for skipped Gate 1
       }
     }
     
     document.getElementById('statFastest3Consec').textContent = `${fastestConsecTime.toFixed(2)}s`;
-    const lapNums = [fastestConsecStart, fastestConsecStart + 1, fastestConsecStart + 2]
-      .map(idx => idx === 0 ? 'G1' : `L${idx}`)
-      .join('-');
+    const lapNums = `L${fastestConsecStart}-L${fastestConsecStart + 1}-L${fastestConsecStart + 2}`;
     document.getElementById('statFastest3ConsecLaps').textContent = lapNums;
   } else {
     document.getElementById('statFastest3Consec').textContent = '--';
     document.getElementById('statFastest3ConsecLaps').textContent = 'Need 3 laps';
   }
   
-  // Median Lap
-  const sorted = [...lapTimes].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  const median = sorted.length % 2 === 0 ? 
-    (sorted[mid - 1] + sorted[mid]) / 2 : 
-    sorted[mid];
-  document.getElementById('statMedian').textContent = `${median.toFixed(2)}s`;
+  // Median Lap (excluding Gate 1)
+  if (validLaps.length === 0) {
+    document.getElementById('statMedian').textContent = '--';
+  } else {
+    const sorted = [...validLaps].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    const median = sorted.length % 2 === 0 ? 
+      (sorted[mid - 1] + sorted[mid]) / 2 : 
+      sorted[mid];
+    document.getElementById('statMedian').textContent = `${median.toFixed(2)}s`;
+  }
   
-  // Best 3 Laps (sum of 3 fastest individual laps)
-  if (lapTimes.length >= 3) {
-    const lapsWithIndex = lapTimes.map((time, index) => ({ time, index }));
+  // Best 3 Laps (sum of 3 fastest individual laps) - skip Gate 1
+  if (validLaps.length >= 3) {
+    const lapsWithIndex = validLaps.map((time, index) => ({ time, index: index + 1 })); // +1 for actual lap number
     lapsWithIndex.sort((a, b) => a.time - b.time);
     const best3 = lapsWithIndex.slice(0, 3);
     const totalTime = best3.reduce((sum, l) => sum + l.time, 0);
-    const lapNumbers = best3.map(l => l.index === 0 ? 'G1' : `L${l.index}`).sort().join(', ');
+    const lapNumbers = best3.map(l => `L${l.index}`).sort().join(', ');
     document.getElementById('statBest3').textContent = `${totalTime.toFixed(2)}s`;
     document.getElementById('statBest3Laps').textContent = lapNumbers;
   } else {
@@ -1757,14 +1871,15 @@ let currentDetailRace = null;
 function saveCurrentRace() {
   if (lapTimes.length === 0) return;
   
-  // Calculate stats
-  const fastest = Math.min(...lapTimes);
-  const sorted = [...lapTimes].sort((a, b) => a - b);
+  // Calculate stats (excluding Gate 1)
+  const validLaps = lapTimes.slice(1);
+  const fastest = validLaps.length > 0 ? Math.min(...validLaps) : 0;
+  const sorted = [...validLaps].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
-  const median = sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+  const median = sorted.length > 0 ? (sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid]) : 0;
   
   let best3Total = 0;
-  if (lapTimes.length >= 3) {
+  if (validLaps.length >= 3) {
     const best3 = sorted.slice(0, 3);
     best3Total = best3.reduce((sum, t) => sum + t, 0);
   }
@@ -1840,7 +1955,10 @@ function renderRaceHistory() {
     const date = new Date(race.timestamp * 1000);
     const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
     const fastestLap = (race.fastestLap / 1000).toFixed(2);
-    const lapCount = race.lapTimes.length;
+    // Lap count should exclude Gate 1 (first entry)
+    const actualLapCount = race.lapTimes.length > 0 ? race.lapTimes.length - 1 : 0;
+    // Calculate total race time (sum of all times)
+    const totalTime = race.lapTimes.reduce((sum, t) => sum + t, 0) / 1000;
     const name = race.name || '';
     const tag = race.tag || '';
     const pilotCallsign = race.pilotCallsign || race.pilotName || '';
@@ -1849,7 +1967,7 @@ function renderRaceHistory() {
     const distanceDisplay = race.totalDistance ? `${race.totalDistance.toFixed(1)}m` : '';
     
     html += `
-      <div class="race-item" onclick="viewRaceDetails(${index})">
+      <div class="race-item" data-race-index="${index}" onclick="viewRaceDetails(${index})">
         <div class="race-item-buttons">
           <button class="race-item-button" onclick="event.stopPropagation(); openEditModal(${index})">Edit</button>
           <button class="race-item-button" onclick="event.stopPropagation(); downloadSingleRace(${race.timestamp})">Download</button>
@@ -1866,8 +1984,9 @@ function renderRaceHistory() {
           </div>
         </div>
         <div class="race-item-stats">
-          <div class="race-item-stat">Laps: <strong>${lapCount}</strong></div>
+          <div class="race-item-stat">Laps: <strong>${actualLapCount}</strong></div>
           <div class="race-item-stat">Fastest: <strong>${fastestLap}s</strong></div>
+          <div class="race-item-stat">Total Time: <strong>${totalTime.toFixed(2)}s</strong></div>
           ${distanceDisplay ? '<div class="race-item-stat">Distance: <strong>' + distanceDisplay + '</strong></div>' : ''}
         </div>
       </div>
@@ -1883,18 +2002,290 @@ function viewRaceDetails(index) {
   const date = new Date(race.timestamp * 1000);
   const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
   
+  // Calculate total race time
+  const totalTime = race.lapTimes.reduce((sum, t) => sum + t, 0) / 1000;
+  
   document.getElementById('raceDetailsTitle').textContent = `Race - ${dateStr}`;
   document.getElementById('detailFastest').textContent = (race.fastestLap / 1000).toFixed(2) + 's';
   document.getElementById('detailMedian').textContent = (race.medianLap / 1000).toFixed(2) + 's';
   document.getElementById('detailBest3').textContent = (race.best3LapsTotal / 1000).toFixed(2) + 's';
+  document.getElementById('detailTotalTime').textContent = totalTime.toFixed(2) + 's';
   
-  document.getElementById('raceDetails').style.display = 'block';
+  // Get the clicked race item element
+  const raceItem = document.querySelector(`.race-item[data-race-index="${index}"]`);
+  const detailsDiv = document.getElementById('raceDetails');
+  
+  // Remove from current position
+  if (detailsDiv.parentNode) {
+    detailsDiv.parentNode.removeChild(detailsDiv);
+  }
+  
+  // Insert after the clicked race item
+  if (raceItem && raceItem.parentNode) {
+    raceItem.parentNode.insertBefore(detailsDiv, raceItem.nextSibling);
+  }
+  
+  detailsDiv.style.display = 'block';
+  
+  // Render the race timeline
+  renderRaceTimeline(race);
+  
+  // Smooth scroll to the details
+  setTimeout(() => {
+    detailsDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, 50);
+  
   switchDetailMode('history');
 }
 
+function renderRaceTimeline(race) {
+  const container = document.getElementById('raceTimeline');
+  if (!container) return;
+  
+  // Clear existing events (keep the bar)
+  const existingEvents = container.querySelectorAll('.timeline-event');
+  existingEvents.forEach(event => event.remove());
+  
+  const lapTimes = race.lapTimes.map(t => t / 1000); // Convert to seconds
+  const totalTime = lapTimes.reduce((sum, t) => sum + t, 0);
+  
+  // Create events array with cumulative times
+  const events = [];
+  let cumulativeTime = 0;
+  
+  // Race Start (time 0)
+  events.push({
+    type: 'start',
+    label: 'Race Start',
+    time: 0,
+    percentage: 0
+  });
+  
+  // Gate 1 and Laps
+  lapTimes.forEach((lapTime, index) => {
+    cumulativeTime += lapTime;
+    const percentage = (cumulativeTime / totalTime) * 100;
+    
+    if (index === 0) {
+      // Gate 1
+      events.push({
+        type: 'gate',
+        label: 'Gate 1',
+        time: cumulativeTime,
+        percentage: percentage
+      });
+    } else {
+      // Regular laps
+      events.push({
+        type: 'lap',
+        label: `Lap ${index}`,
+        time: cumulativeTime,
+        percentage: percentage
+      });
+    }
+  });
+  
+  // Race Stop (at total time)
+  events.push({
+    type: 'stop',
+    label: 'Race Stop',
+    time: totalTime,
+    percentage: 100
+  });
+  
+  // Render events on timeline
+  events.forEach((event, index) => {
+    const eventDiv = document.createElement('div');
+    eventDiv.className = 'timeline-event';
+    
+    // Race Start and Stop go above, everything else below
+    if (event.type === 'start' || event.type === 'stop') {
+      eventDiv.classList.add('above');
+    } else {
+      eventDiv.classList.add('below');
+    }
+    
+    eventDiv.style.left = `${event.percentage}%`;
+    eventDiv.title = `${event.label} - ${event.time.toFixed(2)}s`;
+    
+    eventDiv.innerHTML = `
+      <div class="timeline-flag ${event.type}"></div>
+      <div class="timeline-label">${event.label}</div>
+      <div class="timeline-time">${event.time.toFixed(2)}s</div>
+    `;
+    
+    container.appendChild(eventDiv);
+  });
+  
+  // Add lap time indicators between events
+  for (let i = 1; i < events.length; i++) {
+    const prevEvent = events[i - 1];
+    const currentEvent = events[i];
+    const lapTime = currentEvent.time - prevEvent.time;
+    const midPoint = (prevEvent.percentage + currentEvent.percentage) / 2;
+    
+    // Only show lap time if there's enough space
+    if (currentEvent.percentage - prevEvent.percentage > 5) {
+      const lapTimeDiv = document.createElement('div');
+      lapTimeDiv.className = 'timeline-lap-time';
+      lapTimeDiv.style.left = `${midPoint}%`;
+      lapTimeDiv.textContent = `${lapTime.toFixed(2)}s`;
+      lapTimeDiv.title = `Time between ${prevEvent.label} and ${currentEvent.label}`;
+      container.appendChild(lapTimeDiv);
+    }
+  }
+}
+
 function closeRaceDetails() {
+  stopPlayback(); // Stop any ongoing playback
   document.getElementById('raceDetails').style.display = 'none';
   currentDetailRace = null;
+}
+
+// Race Playback
+let playbackInterval = null;
+let playbackTimeouts = [];
+let playbackStartTime = 0;
+let playbackTotalTime = 0;
+
+function playbackRace() {
+  if (!currentDetailRace) return;
+  
+  const playBtn = document.getElementById('playbackBtn');
+  const stopBtn = document.getElementById('stopPlaybackBtn');
+  const enableWebhooks = document.getElementById('playbackWebhooks').checked;
+  const playhead = document.getElementById('timelinePlayhead');
+  
+  playBtn.style.display = 'none';
+  stopBtn.style.display = 'inline-block';
+  
+  const lapTimes = currentDetailRace.lapTimes.map(t => t / 1000); // Convert to seconds
+  playbackTotalTime = lapTimes.reduce((sum, t) => sum + t, 0);
+  playbackStartTime = Date.now();
+  
+  // Show and start playhead animation
+  if (playhead) {
+    playhead.classList.add('active');
+    playhead.style.left = '0%';
+  }
+  
+  // Update playhead position smoothly
+  playbackInterval = setInterval(() => {
+    const elapsed = (Date.now() - playbackStartTime) / 1000; // seconds
+    const percentage = Math.min((elapsed / playbackTotalTime) * 100, 100);
+    if (playhead) {
+      playhead.style.left = `${percentage}%`;
+    }
+    if (percentage >= 100) {
+      clearInterval(playbackInterval);
+    }
+  }, 50); // Update every 50ms for smooth animation
+  
+  let cumulativeTime = 0;
+  
+  // Broadcast race start
+  if (enableWebhooks) {
+    fetch('/timer/playbackStart', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ raceData: currentDetailRace })
+    }).catch(err => console.error('Playback start failed:', err));
+  }
+  
+  // Schedule each lap event
+  lapTimes.forEach((lapTime, index) => {
+    cumulativeTime += lapTime;
+    const delay = cumulativeTime * 1000; // Convert to milliseconds
+    
+    const timeout = setTimeout(() => {
+      // Broadcast lap event
+      const lapTimeMs = Math.round(lapTime * 1000);
+      
+      if (enableWebhooks) {
+        fetch('/timer/playbackLap', {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ 
+            lapTime: lapTimeMs,
+            lapNumber: index,
+            isGate1: index === 0
+          })
+        }).catch(err => console.error('Playback lap failed:', err));
+      }
+      
+      // Highlight the corresponding timeline flag
+      highlightTimelineEvent(index);
+      
+      console.log(`Playback: ${index === 0 ? 'Gate 1' : 'Lap ' + index} - ${lapTime.toFixed(2)}s`);
+    }, delay);
+    
+    playbackTimeouts.push(timeout);
+  });
+  
+  // Schedule race stop
+  const totalTime = lapTimes.reduce((sum, t) => sum + t, 0);
+  const stopTimeout = setTimeout(() => {
+    if (enableWebhooks) {
+      fetch('/timer/playbackStop', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      }).catch(err => console.error('Playback stop failed:', err));
+    }
+    
+    console.log('Playback: Race complete');
+    stopPlayback();
+  }, totalTime * 1000);
+  
+  playbackTimeouts.push(stopTimeout);
+}
+
+function stopPlayback() {
+  const playBtn = document.getElementById('playbackBtn');
+  const stopBtn = document.getElementById('stopPlaybackBtn');
+  const playhead = document.getElementById('timelinePlayhead');
+  
+  if (playBtn) playBtn.style.display = 'inline-block';
+  if (stopBtn) stopBtn.style.display = 'none';
+  
+  // Hide playhead
+  if (playhead) {
+    playhead.classList.remove('active');
+  }
+  
+  // Clear playhead animation interval
+  if (playbackInterval) {
+    clearInterval(playbackInterval);
+    playbackInterval = null;
+  }
+  
+  // Clear all scheduled timeouts
+  playbackTimeouts.forEach(timeout => clearTimeout(timeout));
+  playbackTimeouts = [];
+  
+  // Remove timeline highlights
+  document.querySelectorAll('.timeline-event').forEach(event => {
+    event.style.transform = event.style.transform.replace(' scale(1.3)', '');
+  });
+}
+
+function highlightTimelineEvent(index) {
+  const events = document.querySelectorAll('.timeline-event');
+  // index + 1 to skip the "Race Start" event
+  if (events[index + 1]) {
+    events[index + 1].style.transform = 'translate(-50%, -50%) scale(1.3)';
+    setTimeout(() => {
+      events[index + 1].style.transform = 'translate(-50%, -50%)';
+    }, 500);
+  }
 }
 
 function switchDetailMode(mode) {
@@ -1922,22 +2313,35 @@ function renderDetailHistory() {
   const hasTrackData = trackDistance > 0 && currentDetailRace.lapTimes.length > 0;
   const perLapDistance = hasTrackData ? trackDistance / currentDetailRace.lapTimes.length : 0;
   
+  // Calculate total race time
+  const totalTime = lapTimes.reduce((sum, t) => sum + t, 0);
+  
   let html = '<div class="analysis-bars">';
   displayLaps.forEach((time, index) => {
-    const lapNo = lapTimes.length - displayLaps.length + index + 1;
-    let label = `Lap ${lapNo}`;
+    const actualIndex = lapTimes.length - displayLaps.length + index;
+    let label;
+    
+    // First entry is Gate 1 (start), not a lap
+    if (actualIndex === 0) {
+      label = 'Gate 1';
+    } else {
+      label = `Lap ${actualIndex}`;
+    }
     
     // Add distance info if available: "Lap x - y/z m"
-    if (hasTrackData) {
-      label = `${time.toFixed(2)}s\nLap ${lapNo} - ${perLapDistance.toFixed(0)}m`;
-    } else {
-      label = `Lap ${lapNo}`;
+    if (hasTrackData && actualIndex > 0) {
+      label = `${time.toFixed(2)}s\n${label} - ${perLapDistance.toFixed(0)}m`;
+    } else if (hasTrackData && actualIndex === 0) {
+      label = `${time.toFixed(2)}s\nGate 1 (Start)`;
+    } else if (actualIndex === 0) {
+      label = 'Gate 1';
     }
     
     const displayTime = hasTrackData ? '' : `${time.toFixed(2)}s`; // Don't show time in bar if it's in label
     html += createBarItemWithColor(label, time, maxTime, displayTime, index);
   });
   html += '</div>';
+  html += `<p style="text-align: center; margin-top: 16px; font-weight: bold; color: var(--primary-color);">Total Race Time: ${totalTime.toFixed(2)}s</p>`;
   
   document.getElementById('detailContent').innerHTML = html;
 }
@@ -2335,7 +2739,29 @@ function importConfig(input) {
           maxLaps: config.maxLaps,
           name: config.name || '',
           ssid: config.ssid || '',
-          pwd: config.pwd || ''
+          pwd: config.pwd || '',
+          // LED settings
+          ledMode: config.ledMode,
+          ledBrightness: config.ledBrightness,
+          ledColor: config.ledColor,
+          ledPreset: config.ledPreset,
+          ledSpeed: config.ledSpeed,
+          ledFadeColor: config.ledFadeColor,
+          ledStrobeColor: config.ledStrobeColor,
+          ledManualOverride: config.ledManualOverride,
+          // Track settings
+          tracksEnabled: config.tracksEnabled,
+          selectedTrackId: config.selectedTrackId,
+          // Webhook settings
+          webhooksEnabled: config.webhooksEnabled,
+          webhookCount: config.webhookCount,
+          webhookIPs: config.webhookIPs,
+          gateLEDsEnabled: config.gateLEDsEnabled,
+          webhookRaceStart: config.webhookRaceStart,
+          webhookRaceStop: config.webhookRaceStop,
+          webhookLap: config.webhookLap,
+          // Operation mode
+          opMode: config.opMode
         })
       })
       .then(response => response.json())
@@ -2837,14 +3263,7 @@ function resetWiFiSettings() {
 }
 
 // Settings Modal Functions
-function openSettingsModal() {
-  const modal = document.getElementById('settingsModal');
-  if (modal) {
-    modal.classList.add('active');
-    // Switch to general section by default
-    switchSettingsSection('general');
-  }
-}
+// (openSettingsModal is defined later with full config loading)
 
 function closeSettingsModal() {
   const modal = document.getElementById('settingsModal');
@@ -2974,6 +3393,131 @@ function runSelfTest() {
       button.disabled = false;
       button.textContent = 'Run All Tests';
     });
+}
+
+// ============================================
+// Serial Monitor Functions
+// ============================================
+
+let serialMonitorActive = false;
+let serialMonitorPollInterval = null;
+let serialMonitorBuffer = [];
+let lastSeenTimestamp = 0;
+const MAX_SERIAL_LINES = 500;
+
+function toggleSerialMonitor() {
+  if (serialMonitorActive) {
+    stopSerialMonitor();
+  } else {
+    startSerialMonitor();
+  }
+}
+
+function startSerialMonitor() {
+  const button = document.getElementById('serialMonitorToggle');
+  const monitor = document.getElementById('serialMonitor');
+  
+  button.textContent = 'Stop Monitor';
+  button.style.backgroundColor = '#ff5555';
+  serialMonitorActive = true;
+  lastSeenTimestamp = 0;
+  
+  // Clear monitor and show starting message
+  monitor.innerHTML = '<div style="color: #4ade80;">[SYSTEM] Serial monitor started</div>';
+  
+  // Poll for new debug logs every 500ms
+  serialMonitorPollInterval = setInterval(pollDebugLogs, 500);
+  
+  // Initial poll
+  pollDebugLogs();
+}
+
+function pollDebugLogs() {
+  if (!serialMonitorActive) return;
+  
+  fetch('/api/debuglog')
+    .then(response => response.json())
+    .then(data => {
+      if (data.logs && data.logs.length > 0) {
+        // Add new logs that we haven't seen yet
+        data.logs.forEach(log => {
+          if (log.timestamp > lastSeenTimestamp) {
+            appendSerialLine(log.message, '#00ff00', log.timestamp);
+            lastSeenTimestamp = log.timestamp;
+          }
+        });
+      }
+    })
+    .catch(error => {
+      if (serialMonitorActive) {
+        console.error('Failed to fetch debug logs:', error);
+      }
+    });
+}
+
+function stopSerialMonitor() {
+  const button = document.getElementById('serialMonitorToggle');
+  const monitor = document.getElementById('serialMonitor');
+  
+  button.textContent = 'Start Monitor';
+  button.style.backgroundColor = '';
+  serialMonitorActive = false;
+  
+  if (serialMonitorPollInterval) {
+    clearInterval(serialMonitorPollInterval);
+    serialMonitorPollInterval = null;
+  }
+  
+  const line = document.createElement('div');
+  line.style.color = '#888';
+  line.textContent = '[SYSTEM] Serial monitor stopped';
+  monitor.appendChild(line);
+}
+
+function appendSerialLine(text, color = '#00ff00', deviceTimestamp = null) {
+  const monitor = document.getElementById('serialMonitor');
+  const autoScroll = document.getElementById('serialAutoScroll')?.checked;
+  
+  // Add line to buffer
+  serialMonitorBuffer.push({ text, color, deviceTimestamp });
+  
+  // Trim buffer if too large
+  if (serialMonitorBuffer.length > MAX_SERIAL_LINES) {
+    serialMonitorBuffer.shift();
+    // Rebuild monitor from buffer
+    rebuildSerialMonitor();
+  } else {
+    // Just append new line
+    const line = document.createElement('div');
+    line.style.color = color;
+    line.textContent = text;
+    monitor.appendChild(line);
+  }
+  
+  // Auto-scroll to bottom
+  if (autoScroll) {
+    monitor.scrollTop = monitor.scrollHeight;
+  }
+}
+
+function rebuildSerialMonitor() {
+  const monitor = document.getElementById('serialMonitor');
+  monitor.innerHTML = '';
+  
+  serialMonitorBuffer.forEach(({ text, color }) => {
+    const line = document.createElement('div');
+    line.style.color = color;
+    line.textContent = text;
+    monitor.appendChild(line);
+  });
+}
+
+function clearSerialMonitor() {
+  const monitor = document.getElementById('serialMonitor');
+  serialMonitorBuffer = [];
+  monitor.innerHTML = serialMonitorActive 
+    ? '<div style="color: #888;">Monitor cleared...</div>' 
+    : '<div style="color: #888;">Serial monitor stopped. Click "Start Monitor" to begin.</div>';
 }
 
 // ============================================
@@ -3494,10 +4038,108 @@ function openSettingsModal() {
   if (modal) {
     modal.classList.add('active');
     
-    // Load config to check if tracks and webhooks are enabled
+    // Load full config to populate all settings
     fetch('/config')
       .then(response => response.json())
       .then(config => {
+        // Populate all device config fields
+        if (config.freq !== undefined) setBandChannelIndex(config.freq);
+        if (config.minLap !== undefined) {
+          minLapInput.value = (parseFloat(config.minLap) / 10).toFixed(1);
+          updateMinLap(minLapInput, minLapInput.value);
+        }
+        if (config.alarm !== undefined) {
+          alarmThreshold.value = (parseFloat(config.alarm) / 10).toFixed(1);
+          updateAlarmThreshold(alarmThreshold, alarmThreshold.value);
+        }
+        if (config.anType !== undefined) announcerSelect.selectedIndex = config.anType;
+        if (config.anRate !== undefined) {
+          announcerRateInput.value = (parseFloat(config.anRate) / 10).toFixed(1);
+          updateAnnouncerRate(announcerRateInput, announcerRateInput.value);
+        }
+        if (config.enterRssi !== undefined) {
+          enterRssiInput.value = config.enterRssi;
+          updateEnterRssi(enterRssiInput, enterRssiInput.value);
+        }
+        if (config.exitRssi !== undefined) {
+          exitRssiInput.value = config.exitRssi;
+          updateExitRssi(exitRssiInput, exitRssiInput.value);
+        }
+        if (config.name !== undefined) pilotNameInput.value = config.name;
+        if (config.ssid !== undefined) ssidInput.value = config.ssid;
+        if (config.pwd !== undefined) pwdInput.value = config.pwd;
+        if (config.maxLaps !== undefined) {
+          maxLapsInput.value = config.maxLaps;
+          updateMaxLaps(maxLapsInput, maxLapsInput.value);
+        }
+        
+        // LED settings
+        const ledBrightnessInput = document.getElementById('ledBrightness');
+        if (config.ledBrightness !== undefined && ledBrightnessInput) {
+          ledBrightnessInput.value = config.ledBrightness;
+          updateLedBrightness(ledBrightnessInput, config.ledBrightness);
+        }
+        
+        // Pilot settings
+        const callsignInput = document.getElementById('pcallsign');
+        const phoneticInput = document.getElementById('pphonetic');
+        const colorInput = document.getElementById('pilotColor');
+        if (callsignInput && config.pilotCallsign !== undefined) {
+          callsignInput.value = config.pilotCallsign;
+        }
+        if (phoneticInput && config.pilotPhonetic !== undefined) {
+          phoneticInput.value = config.pilotPhonetic;
+        }
+        if (colorInput && config.pilotColor !== undefined) {
+          const hexColor = '#' + ('000000' + config.pilotColor.toString(16)).slice(-6).toUpperCase();
+          colorInput.value = hexColor;
+          updateColorPreview();
+        }
+        
+        // Voice and lap format settings
+        const voiceSelect = document.getElementById('voiceSelect');
+        const lapFormatSelect = document.getElementById('lapFormatSelect');
+        if (voiceSelect && config.selectedVoice) {
+          voiceSelect.value = config.selectedVoice;
+          selectedVoice = config.selectedVoice;
+        }
+        if (lapFormatSelect && config.lapFormat) {
+          lapFormatSelect.value = config.lapFormat;
+          lapFormat = config.lapFormat;
+        }
+        
+        // Theme setting
+        const themeSelect = document.getElementById('themeSelect');
+        if (themeSelect && config.theme) {
+          themeSelect.value = config.theme;
+        }
+        
+        // Gate LEDs and webhook event settings
+        const gateLEDsEnabledToggle = document.getElementById('gateLEDsEnabled');
+        const webhookRaceStartToggle = document.getElementById('webhookRaceStart');
+        const webhookRaceStopToggle = document.getElementById('webhookRaceStop');
+        const webhookLapToggle = document.getElementById('webhookLap');
+        const gateLEDOptions = document.getElementById('gateLEDOptions');
+        
+        if (gateLEDsEnabledToggle && config.gateLEDsEnabled !== undefined) {
+          gateLEDsEnabledToggle.checked = config.gateLEDsEnabled === 1;
+          if (gateLEDOptions) {
+            gateLEDOptions.style.display = config.gateLEDsEnabled === 1 ? 'block' : 'none';
+          }
+        }
+        
+        if (webhookRaceStartToggle && config.webhookRaceStart !== undefined) {
+          webhookRaceStartToggle.checked = config.webhookRaceStart === 1;
+        }
+        
+        if (webhookRaceStopToggle && config.webhookRaceStop !== undefined) {
+          webhookRaceStopToggle.checked = config.webhookRaceStop === 1;
+        }
+        
+        if (webhookLapToggle && config.webhookLap !== undefined) {
+          webhookLapToggle.checked = config.webhookLap === 1;
+        }
+        
         // Tracks
         const tracksEnabled = config.tracksEnabled === 1;
         const tracksCheckbox = document.getElementById('tracksEnabled');
@@ -3523,6 +4165,9 @@ function openSettingsModal() {
         }
       })
       .catch(error => console.error('Error loading config:', error));
+    
+    // Switch to general section by default
+    switchSettingsSection('general');
   }
 }
 

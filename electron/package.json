@@ -1,6 +1,6 @@
 {
   "name": "fpvgate-desktop",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "FPVGate Lap Timer Desktop App - USB/WiFi connectivity with track management, distance tracking, race editing, and modern configuration UI",
   "main": "main.js",
   "scripts": {

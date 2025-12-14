@@ -5,7 +5,7 @@
 
 #ifdef DEBUG_OUT
 #define DEBUG_INIT DEBUG_OUT.begin(SERIAL_BAUD);
-#define DEBUG(...) printf(__VA_ARGS__)
+#include "debuglogger.h"
 #else
 #define DEBUG_INIT
 #define DEBUG(...)

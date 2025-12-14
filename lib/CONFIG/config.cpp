@@ -1,8 +1,16 @@
 #include "config.h"
 
 #include <EEPROM.h>
+#include <LittleFS.h>
 
 #include "debug.h"
+#include "storage.h"
+
+#ifdef ESP32S3
+#include <SD.h>
+#endif
+
+#define CONFIG_BACKUP_PATH "/config_backup.bin"
 
 void Config::init(void) {
     if (sizeof(laptimer_config_t) > EEPROM_RESERVED_SIZE) {
@@ -27,9 +35,17 @@ void Config::load(void) {
         version = conf.version & ~CONFIG_MAGIC_MASK;
     }
 
-    // If version is not current, reset to defaults
+    // If version is not current, try to restore from SD backup
     if (version != CONFIG_VERSION) {
-        setDefaults();
+        DEBUG("EEPROM config invalid (version=%u, expected=%u)\n", version, CONFIG_VERSION);
+        if (loadFromSD()) {
+            DEBUG("Successfully restored config from SD card backup\n");
+            modified = true;  // Mark as modified to write back to EEPROM
+            write();  // Write restored config to EEPROM
+        } else {
+            DEBUG("No SD backup found, using defaults\n");
+            setDefaults();
+        }
     }
 }
 
@@ -42,6 +58,11 @@ void Config::write(void) {
     EEPROM.commit();
 
     DEBUG("Writing to EEPROM done\n");
+    
+    // Also backup to SD card if available
+    if (saveToSD()) {
+        DEBUG("Config backed up to SD card\n");
+    }
 
     modified = false;
 }
@@ -79,6 +100,12 @@ void Config::toJson(AsyncResponseStream& destination) {
     config["webhookRaceStop"] = conf.webhookRaceStop;
     config["webhookLap"] = conf.webhookLap;
     config["name"] = conf.pilotName;
+    config["pilotCallsign"] = conf.pilotCallsign;
+    config["pilotPhonetic"] = conf.pilotPhonetic;
+    config["pilotColor"] = conf.pilotColor;
+    config["theme"] = conf.theme;
+    config["selectedVoice"] = conf.selectedVoice;
+    config["lapFormat"] = conf.lapFormat;
     config["ssid"] = conf.ssid;
     config["pwd"] = conf.password;
     serializeJson(config, destination);
@@ -204,8 +231,53 @@ void Config::fromJson(JsonObject source) {
         conf.webhookLap = source["webhookLap"];
         modified = true;
     }
+    // Webhook IPs and enabled state
+    if (source.containsKey("webhooksEnabled") && source["webhooksEnabled"] != conf.webhooksEnabled) {
+        conf.webhooksEnabled = source["webhooksEnabled"];
+        modified = true;
+    }
+    if (source.containsKey("webhookIPs")) {
+        // Clear existing webhooks
+        memset(conf.webhookIPs, 0, sizeof(conf.webhookIPs));
+        conf.webhookCount = 0;
+        
+        // Add new webhooks from import
+        JsonArray webhookArray = source["webhookIPs"].as<JsonArray>();
+        for (JsonVariant ip : webhookArray) {
+            if (conf.webhookCount < 10) {
+                const char* ipStr = ip.as<const char*>();
+                strlcpy(conf.webhookIPs[conf.webhookCount], ipStr, 16);
+                conf.webhookCount++;
+            }
+        }
+        modified = true;
+    }
     if (source["name"] != conf.pilotName) {
         strlcpy(conf.pilotName, source["name"] | "", sizeof(conf.pilotName));
+        modified = true;
+    }
+    if (source.containsKey("pilotCallsign") && source["pilotCallsign"] != conf.pilotCallsign) {
+        strlcpy(conf.pilotCallsign, source["pilotCallsign"] | "", sizeof(conf.pilotCallsign));
+        modified = true;
+    }
+    if (source.containsKey("pilotPhonetic") && source["pilotPhonetic"] != conf.pilotPhonetic) {
+        strlcpy(conf.pilotPhonetic, source["pilotPhonetic"] | "", sizeof(conf.pilotPhonetic));
+        modified = true;
+    }
+    if (source.containsKey("pilotColor") && source["pilotColor"] != conf.pilotColor) {
+        conf.pilotColor = source["pilotColor"];
+        modified = true;
+    }
+    if (source.containsKey("theme") && source["theme"] != conf.theme) {
+        strlcpy(conf.theme, source["theme"] | "oceanic", sizeof(conf.theme));
+        modified = true;
+    }
+    if (source.containsKey("selectedVoice") && source["selectedVoice"] != conf.selectedVoice) {
+        strlcpy(conf.selectedVoice, source["selectedVoice"] | "default", sizeof(conf.selectedVoice));
+        modified = true;
+    }
+    if (source.containsKey("lapFormat") && source["lapFormat"] != conf.lapFormat) {
+        strlcpy(conf.lapFormat, source["lapFormat"] | "full", sizeof(conf.lapFormat));
         modified = true;
     }
     if (source["ssid"] != conf.ssid) {
@@ -327,6 +399,30 @@ uint8_t Config::getWebhookRaceStop() {
 
 uint8_t Config::getWebhookLap() {
     return conf.webhookLap;
+}
+
+char* Config::getPilotCallsign() {
+    return conf.pilotCallsign;
+}
+
+char* Config::getPilotPhonetic() {
+    return conf.pilotPhonetic;
+}
+
+uint32_t Config::getPilotColor() {
+    return conf.pilotColor;
+}
+
+char* Config::getTheme() {
+    return conf.theme;
+}
+
+char* Config::getSelectedVoice() {
+    return conf.selectedVoice;
+}
+
+char* Config::getLapFormat() {
+    return conf.lapFormat;
 }
 
 // Setters for RotorHazard node mode
@@ -504,34 +600,40 @@ void Config::setDefaults(void) {
     memset(&conf, 0, sizeof(conf));
     conf.version = CONFIG_VERSION | CONFIG_MAGIC;
     conf.frequency = 5658;  // RaceBand Channel 1 (R1) - 5658 MHz
-    conf.minLap = 50;  // 5.0 seconds
-    conf.alarm = 36;
+    conf.minLap = 20;  // 2.0 seconds
+    conf.alarm = 0;  // Alarm disabled
     conf.announcerType = 2;
     conf.announcerRate = 10;
-    conf.enterRssi = 120;
-    conf.exitRssi = 100;
+    conf.enterRssi = 72;
+    conf.exitRssi = 68;
     conf.maxLaps = 0;
     conf.ledMode = 3;  // Rainbow wave by default (legacy)
-    conf.ledBrightness = 80;
-    conf.ledColor = 0xFF00FF;  // Purple by default
-    conf.ledPreset = 2;  // Rainbow Wave preset by default
+    conf.ledBrightness = 120;
+    conf.ledColor = 14492325;  // 0xDD00A5 (purple-pink)
+    conf.ledPreset = 3;  // Color fade preset by default
     conf.ledSpeed = 5;  // Medium speed
     conf.ledFadeColor = 0x0080FF;  // Blue for fade
     conf.ledStrobeColor = 0xFFFFFF;  // White for strobe
     conf.ledManualOverride = 0;  // Manual override off by default
     conf.operationMode = 0;  // WiFi mode by default
-    conf.tracksEnabled = 0;  // Tracks disabled by default
-    conf.selectedTrackId = 0;  // No track selected by default
-    conf.webhooksEnabled = 0;  // Webhooks disabled by default
+    conf.tracksEnabled = 1;  // Tracks enabled by default
+    conf.selectedTrackId = 0;  // No track selected by default (will be set on first track creation)
+    conf.webhooksEnabled = 0;  // Webhooks disabled by default (no IPs configured)
     conf.webhookCount = 0;  // No webhooks configured
     memset(conf.webhookIPs, 0, sizeof(conf.webhookIPs));  // Clear all webhook IPs
-    conf.gateLEDsEnabled = 0;  // Gate LEDs disabled by default
+    conf.gateLEDsEnabled = 1;  // Gate LEDs enabled by default
     conf.webhookRaceStart = 1;  // Race start enabled by default
     conf.webhookRaceStop = 1;  // Race stop enabled by default
     conf.webhookLap = 1;  // Lap enabled by default
-    strlcpy(conf.ssid, "", sizeof(conf.ssid));
-    strlcpy(conf.password, "", sizeof(conf.password));
-    strlcpy(conf.pilotName, "", sizeof(conf.pilotName));
+    strlcpy(conf.pilotName, "Louis", sizeof(conf.pilotName));  // Default pilot name
+    strlcpy(conf.pilotCallsign, "Louis", sizeof(conf.pilotCallsign));  // Default callsign
+    strlcpy(conf.pilotPhonetic, "Louie", sizeof(conf.pilotPhonetic));  // Default phonetic
+    conf.pilotColor = 0x0080FF;  // Default blue color
+    strlcpy(conf.theme, "oceanic", sizeof(conf.theme));  // Default theme
+    strlcpy(conf.selectedVoice, "piper", sizeof(conf.selectedVoice));  // Default voice
+    strlcpy(conf.lapFormat, "timeonly", sizeof(conf.lapFormat));  // Default lap format
+    strlcpy(conf.ssid, "", sizeof(conf.ssid));  // Empty WiFi credentials
+    strlcpy(conf.password, "", sizeof(conf.password));  // Empty WiFi credentials
     modified = true;
     write();
 }
@@ -541,4 +643,88 @@ void Config::handleEeprom(uint32_t currentTimeMs) {
         checkTimeMs = currentTimeMs;
         write();
     }
+}
+
+bool Config::saveToSD() {
+    if (!storage || !storage->isSDAvailable()) {
+        return false;
+    }
+    
+    DEBUG("Saving config to SD: %s\n", CONFIG_BACKUP_PATH);
+    
+#ifdef ESP32S3
+    File file = SD.open(CONFIG_BACKUP_PATH, FILE_WRITE);
+    if (!file) {
+        DEBUG("Failed to open config backup file for writing\n");
+        return false;
+    }
+    
+    size_t written = file.write((uint8_t*)&conf, sizeof(laptimer_config_t));
+    file.close();
+    
+    if (written != sizeof(laptimer_config_t)) {
+        DEBUG("Failed to write complete config (wrote %d of %d bytes)\n", written, sizeof(laptimer_config_t));
+        return false;
+    }
+    
+    DEBUG("Config saved to SD (%d bytes)\n", written);
+    return true;
+#else
+    return false;
+#endif
+}
+
+bool Config::loadFromSD() {
+    if (!storage || !storage->isSDAvailable()) {
+        return false;
+    }
+    
+    DEBUG("Attempting to load config from SD: %s\n", CONFIG_BACKUP_PATH);
+    
+#ifdef ESP32S3
+    if (!SD.exists(CONFIG_BACKUP_PATH)) {
+        DEBUG("No config backup file found on SD\n");
+        return false;
+    }
+    
+    File file = SD.open(CONFIG_BACKUP_PATH, FILE_READ);
+    if (!file) {
+        DEBUG("Failed to open config backup file for reading\n");
+        return false;
+    }
+    
+    size_t fileSize = file.size();
+    if (fileSize != sizeof(laptimer_config_t)) {
+        DEBUG("Config backup file size mismatch (found %d, expected %d)\n", fileSize, sizeof(laptimer_config_t));
+        file.close();
+        return false;
+    }
+    
+    laptimer_config_t temp_conf;
+    size_t bytesRead = file.read((uint8_t*)&temp_conf, sizeof(laptimer_config_t));
+    file.close();
+    
+    if (bytesRead != sizeof(laptimer_config_t)) {
+        DEBUG("Failed to read complete config (read %d of %d bytes)\n", bytesRead, sizeof(laptimer_config_t));
+        return false;
+    }
+    
+    // Validate the loaded config
+    uint32_t version = 0xFFFFFFFF;
+    if ((temp_conf.version & CONFIG_MAGIC_MASK) == CONFIG_MAGIC) {
+        version = temp_conf.version & ~CONFIG_MAGIC_MASK;
+    }
+    
+    if (version != CONFIG_VERSION) {
+        DEBUG("SD config version mismatch (found %u, expected %u)\n", version, CONFIG_VERSION);
+        return false;
+    }
+    
+    // Config is valid, use it
+    memcpy(&conf, &temp_conf, sizeof(laptimer_config_t));
+    DEBUG("Config loaded from SD successfully\n");
+    return true;
+#else
+    return false;
+#endif
 }

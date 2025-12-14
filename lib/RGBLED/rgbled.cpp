@@ -77,6 +77,20 @@ void RgbLed::setStatus(rgb_status_e status) {
         return;
     }
     
+    // Don't override manual preset mode with non-critical status changes
+    // Allow race events (countdown, flashes) to override, but not connection status
+    if (manualOverride) {
+        // Only update status for race events, not connection status
+        if (status != STATUS_USER_CONNECTED && status != STATUS_BOOTING) {
+            DEBUG("RGB LED: Setting status to %d (manual override active, allowing race event)\n", status);
+            currentStatus = status;
+            applyStatus();
+        } else {
+            DEBUG("RGB LED: Ignoring status %d (manual override active)\n", status);
+        }
+        return;
+    }
+    
     DEBUG("RGB LED: Setting status to %d\n", status);
     currentStatus = status;
     applyStatus();

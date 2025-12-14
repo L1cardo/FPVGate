@@ -1,49 +1,73 @@
 #include "webhook.h"
 #include "debug.h"
+#include <HTTPClient.h>
+#include <WiFi.h>
 
-WebhookManager::WebhookManager() {
-    enabled = true;
+WebhookManager::WebhookManager() : webhookCount(0), enabled(true), queueHead(0), queueTail(0), queueCount(0), lastWebhookMs(0) {
+    memset(webhookIPs, 0, sizeof(webhookIPs));
+    memset(requestQueue, 0, sizeof(requestQueue));
 }
 
-bool WebhookManager::addWebhook(const String& ip) {
+bool WebhookManager::addWebhook(const char* ip) {
+    if (!ip || strlen(ip) == 0) {
+        DEBUG("Invalid webhook IP\n");
+        return false;
+    }
+    
     // Check if already exists
-    for (const auto& existingIp : webhookIPs) {
-        if (existingIp == ip) {
-            DEBUG("Webhook IP already exists: %s\n", ip.c_str());
+    for (uint8_t i = 0; i < webhookCount; i++) {
+        if (strcmp(webhookIPs[i], ip) == 0) {
+            DEBUG("Webhook IP already exists: %s\n", ip);
             return false;
         }
     }
     
     // Check max limit
-    if (webhookIPs.size() >= MAX_WEBHOOKS) {
+    if (webhookCount >= MAX_WEBHOOKS) {
         DEBUG("Max webhooks reached (%d)\n", MAX_WEBHOOKS);
         return false;
     }
     
-    webhookIPs.push_back(ip);
-    DEBUG("Webhook added: %s\n", ip.c_str());
+    // Copy IP to fixed buffer
+    strncpy(webhookIPs[webhookCount], ip, 15);
+    webhookIPs[webhookCount][15] = '\0';  // Ensure null termination
+    webhookCount++;
+    DEBUG("Webhook added: %s (total: %d)\n", ip, webhookCount);
     return true;
 }
 
-bool WebhookManager::removeWebhook(const String& ip) {
-    for (auto it = webhookIPs.begin(); it != webhookIPs.end(); ++it) {
-        if (*it == ip) {
-            webhookIPs.erase(it);
-            DEBUG("Webhook removed: %s\n", ip.c_str());
+bool WebhookManager::removeWebhook(const char* ip) {
+    for (uint8_t i = 0; i < webhookCount; i++) {
+        if (strcmp(webhookIPs[i], ip) == 0) {
+            // Shift remaining IPs down
+            for (uint8_t j = i; j < webhookCount - 1; j++) {
+                strcpy(webhookIPs[j], webhookIPs[j + 1]);
+            }
+            webhookCount--;
+            memset(webhookIPs[webhookCount], 0, 16);  // Clear last slot
+            DEBUG("Webhook removed: %s (remaining: %d)\n", ip, webhookCount);
             return true;
         }
     }
-    DEBUG("Webhook not found: %s\n", ip.c_str());
+    DEBUG("Webhook not found: %s\n", ip);
     return false;
 }
 
 void WebhookManager::clearWebhooks() {
-    webhookIPs.clear();
+    webhookCount = 0;
+    memset(webhookIPs, 0, sizeof(webhookIPs));
     DEBUG("All webhooks cleared\n");
 }
 
-std::vector<String> WebhookManager::getWebhooks() const {
-    return webhookIPs;
+uint8_t WebhookManager::getWebhookCount() const {
+    return webhookCount;
+}
+
+const char* WebhookManager::getWebhookIP(uint8_t index) const {
+    if (index < webhookCount) {
+        return webhookIPs[index];
+    }
+    return nullptr;
 }
 
 void WebhookManager::setEnabled(bool en) {
@@ -57,63 +81,121 @@ bool WebhookManager::isEnabled() const {
 
 void WebhookManager::triggerLap() {
     if (!enabled) return;
-    DEBUG("Triggering webhook: /Lap\n");
-    sendToAll("/Lap");
+    queueRequest("/Lap");
 }
 
 void WebhookManager::triggerGhostLap() {
     if (!enabled) return;
-    DEBUG("Triggering webhook: /GhostLap\n");
-    sendToAll("/GhostLap");
+    queueRequest("/GhostLap");
 }
 
 void WebhookManager::triggerRaceStart() {
     if (!enabled) return;
-    DEBUG("Triggering webhook: /RaceStart\n");
-    sendToAll("/RaceStart");
+    queueRequest("/RaceStart");
 }
 
 void WebhookManager::triggerRaceStop() {
     if (!enabled) return;
-    DEBUG("Triggering webhook: /RaceStop\n");
-    sendToAll("/RaceStop");
+    queueRequest("/RaceStop");
 }
 
 void WebhookManager::triggerOff() {
     if (!enabled) return;
-    DEBUG("Triggering webhook: /off\n");
-    sendToAll("/off");
+    queueRequest("/off");
 }
 
 void WebhookManager::triggerFlash() {
     if (!enabled) return;
-    DEBUG("Triggering webhook: /flash\n");
-    sendToAll("/flash");
+    queueRequest("/flash");
 }
 
-void WebhookManager::sendToAll(const String& endpoint) {
-    for (const auto& ip : webhookIPs) {
-        sendWebhook(ip, endpoint);
+void WebhookManager::queueRequest(const char* endpoint) {
+    // Don't queue webhooks if WiFi isn't ready yet
+    if (WiFi.status() != WL_CONNECTED) {
+        DEBUG("Webhook skipped (WiFi not ready): %s\n", endpoint);
+        return;
+    }
+    
+    if (queueCount >= WEBHOOK_QUEUE_SIZE) {
+        DEBUG("Webhook queue full, dropping request: %s\n", endpoint);
+        return;
+    }
+    
+    strncpy(requestQueue[queueTail].endpoint, endpoint, 31);
+    requestQueue[queueTail].endpoint[31] = '\0';
+    requestQueue[queueTail].timestamp = millis();
+    
+    queueTail = (queueTail + 1) % WEBHOOK_QUEUE_SIZE;
+    queueCount++;
+    
+    DEBUG("Webhook queued: %s (queue: %d/%d)\n", endpoint, queueCount, WEBHOOK_QUEUE_SIZE);
+}
+
+void WebhookManager::process() {
+    if (!enabled || queueCount == 0 || webhookCount == 0) {
+        return;
+    }
+    
+    // Rate limit: don't send more than once every 50ms to avoid overwhelming network
+    uint32_t now = millis();
+    if (now - lastWebhookMs < 50) {
+        return;
+    }
+    
+    processNextRequest();
+    lastWebhookMs = now;
+}
+
+void WebhookManager::processNextRequest() {
+    if (queueCount == 0) return;
+    
+    const char* endpoint = requestQueue[queueHead].endpoint;
+    DEBUG("Processing webhook: %s\n", endpoint);
+    
+    sendToAll(endpoint);
+    
+    // Remove from queue
+    queueHead = (queueHead + 1) % WEBHOOK_QUEUE_SIZE;
+    queueCount--;
+}
+
+void WebhookManager::sendToAll(const char* endpoint) {
+    for (uint8_t i = 0; i < webhookCount; i++) {
+        sendWebhook(webhookIPs[i], endpoint);
     }
 }
 
-void WebhookManager::sendWebhook(const String& ip, const String& endpoint) {
+void WebhookManager::sendWebhook(const char* ip, const char* endpoint) {
+    // Create HTTPClient on stack (safer than static)
     HTTPClient http;
-    String url = "http://" + ip + endpoint;
+    
+    // Build URL in fixed buffer to avoid String allocation
+    char url[64];
+    snprintf(url, sizeof(url), "http://%s%s", ip, endpoint);
     
     http.setTimeout(WEBHOOK_TIMEOUT_MS);
-    http.begin(url);
+    
+    // Check WiFi is connected before attempting HTTP
+    if (WiFi.status() != WL_CONNECTED) {
+        DEBUG("Webhook skipped - WiFi not connected\n");
+        return;
+    }
+    
+    if (!http.begin(url)) {
+        DEBUG("Webhook failed to begin: %s\n", url);
+        return;
+    }
     
     int httpCode = http.POST("");  // Empty POST body
     
     if (httpCode > 0) {
         if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_ACCEPTED) {
-            DEBUG("Webhook success: %s (code: %d)\n", url.c_str(), httpCode);
+            DEBUG("Webhook OK: %s (code: %d)\n", url, httpCode);
         } else {
-            DEBUG("Webhook returned code %d: %s\n", httpCode, url.c_str());
+            DEBUG("Webhook code %d: %s\n", httpCode, url);
         }
     } else {
-        DEBUG("Webhook failed: %s (error: %s)\n", url.c_str(), http.errorToString(httpCode).c_str());
+        DEBUG("Webhook failed: %s\n", url);
     }
     
     http.end();

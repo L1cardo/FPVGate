@@ -327,8 +327,10 @@ static bool startLittleFS() {
 }
 
 static void startMDNS() {
+    DEBUG("Starting mDNS with hostname: %s\n", wifi_hostname);
+    
     if (!MDNS.begin(wifi_hostname)) {
-        DEBUG("Error starting mDNS\n");
+        DEBUG("ERROR: mDNS failed to start!\n");
         return;
     }
 
@@ -336,12 +338,20 @@ static void startMDNS() {
     instance.replace(":", "");
     MDNS.setInstanceName(instance);
     MDNS.addService("http", "tcp", 80);
+    
+    DEBUG("mDNS started successfully\n");
+    DEBUG("  Hostname: %s.local\n", wifi_hostname);
+    DEBUG("  Instance: %s\n", instance.c_str());
+    DEBUG("  HTTP service advertised on port 80\n");
 }
 
 void Webserver::startServices() {
     if (servicesStarted) {
+        // Restart mDNS when WiFi mode changes
         MDNS.end();
+        delay(100);  // Give mDNS time to shut down
         startMDNS();
+        DEBUG("mDNS restarted for mode change\n");
         return;
     }
 
@@ -445,6 +455,52 @@ EEPROM:\n\
         request->send(200, "application/json", "{\"status\": \"OK\"}");
     });
     server.addHandler(addLapHandler);
+
+    // Playback endpoints - replay saved races
+    AsyncCallbackJsonWebHandler *playbackStartHandler = new AsyncCallbackJsonWebHandler("/timer/playbackStart", [this](AsyncWebServerRequest *request, JsonVariant &json) {
+        if (transportMgr) {
+            transportMgr->broadcastRaceStateEvent("started");
+        }
+        // Trigger race start webhook if Gate LEDs enabled
+        if (webhooks && conf->getGateLEDsEnabled() && conf->getWebhookRaceStart()) {
+            webhooks->triggerRaceStart();
+        }
+        request->send(200, "application/json", "{\"status\": \"OK\"}");
+    });
+    server.addHandler(playbackStartHandler);
+
+    AsyncCallbackJsonWebHandler *playbackLapHandler = new AsyncCallbackJsonWebHandler("/timer/playbackLap", [this](AsyncWebServerRequest *request, JsonVariant &json) {
+        JsonObject jsonObj = json.as<JsonObject>();
+        if (jsonObj.containsKey("lapTime")) {
+            uint32_t lapTimeMs = jsonObj["lapTime"].as<uint32_t>();
+            if (transportMgr) {
+                transportMgr->broadcastLapEvent(lapTimeMs);
+            }
+#ifdef ESP32S3
+            if (g_rgbLed) {
+                g_rgbLed->flashLap();
+            }
+#endif
+            // Trigger lap webhook if Gate LEDs enabled and Lap enabled
+            if (webhooks && conf->getGateLEDsEnabled() && conf->getWebhookLap()) {
+                webhooks->triggerLap();
+            }
+        }
+        request->send(200, "application/json", "{\"status\": \"OK\"}");
+    });
+    server.addHandler(playbackLapHandler);
+
+    AsyncCallbackJsonWebHandler *playbackStopHandler = new AsyncCallbackJsonWebHandler("/timer/playbackStop", [this](AsyncWebServerRequest *request, JsonVariant &json) {
+        if (transportMgr) {
+            transportMgr->broadcastRaceStateEvent("stopped");
+        }
+        // Trigger race stop webhook if Gate LEDs enabled
+        if (webhooks && conf->getGateLEDsEnabled() && conf->getWebhookRaceStop()) {
+            webhooks->triggerRaceStop();
+        }
+        request->send(200, "application/json", "{\"status\": \"OK\"}");
+    });
+    server.addHandler(playbackStopHandler);
 
     server.on("/timer/rssiStart", HTTP_POST, [this](AsyncWebServerRequest *request) {
         sendRssi = true;
@@ -869,9 +925,27 @@ EEPROM:\n\
     server.addHandler(trackUpdateHandler);
 
     // Self-test endpoint
-    server.on("/selftest", HTTP_GET, [this](AsyncWebServerRequest *request) {
+    server.on("/api/selftest", HTTP_GET, [this](AsyncWebServerRequest *request) {
         selftest->runAllTests();
         String json = selftest->getResultsJSON();
+        request->send(200, "application/json", json);
+        led->on(200);
+    });
+    
+    // Debug log endpoint for serial monitor
+    server.on("/api/debuglog", HTTP_GET, [this](AsyncWebServerRequest *request) {
+        const auto& buffer = DebugLogger::getInstance().getBuffer();
+        DynamicJsonDocument doc(8192);
+        JsonArray logs = doc.createNestedArray("logs");
+        
+        for (const auto& entry : buffer) {
+            JsonObject log = logs.createNestedObject();
+            log["timestamp"] = entry.timestamp;
+            log["message"] = entry.message;
+        }
+        
+        String json;
+        serializeJson(doc, json);
         request->send(200, "application/json", json);
         led->on(200);
     });
@@ -1221,10 +1295,10 @@ EEPROM:\n\
     server.on("/webhooks", HTTP_GET, [this](AsyncWebServerRequest *request) {
         String json = "{\"enabled\":" + String(webhooks ? (webhooks->isEnabled() ? "true" : "false") : "false") + ",\"webhooks\":[";
         if (webhooks) {
-            auto hooks = webhooks->getWebhooks();
-            for (size_t i = 0; i < hooks.size(); i++) {
+            uint8_t count = webhooks->getWebhookCount();
+            for (uint8_t i = 0; i < count; i++) {
                 if (i > 0) json += ",";
-                json += "\"" + hooks[i] + "\"";
+                json += "\"" + String(webhooks->getWebhookIP(i)) + "\"";
             }
         }
         json += "]}";
@@ -1235,7 +1309,7 @@ EEPROM:\n\
     server.on("/webhooks/add", HTTP_POST, [this](AsyncWebServerRequest *request) {
         if (request->hasParam("ip", true)) {
             String ip = request->getParam("ip", true)->value();
-            if (webhooks && webhooks->addWebhook(ip)) {
+            if (webhooks && webhooks->addWebhook(ip.c_str())) {
                 conf->addWebhookIP(ip.c_str());
                 request->send(200, "application/json", "{\"status\": \"OK\", \"message\": \"Webhook added\"}");
             } else {
@@ -1250,7 +1324,7 @@ EEPROM:\n\
     server.on("/webhooks/remove", HTTP_POST, [this](AsyncWebServerRequest *request) {
         if (request->hasParam("ip", true)) {
             String ip = request->getParam("ip", true)->value();
-            if (webhooks && webhooks->removeWebhook(ip)) {
+            if (webhooks && webhooks->removeWebhook(ip.c_str())) {
                 conf->removeWebhookIP(ip.c_str());
                 request->send(200, "application/json", "{\"status\": \"OK\", \"message\": \"Webhook removed\"}");
             } else {
@@ -1301,13 +1375,13 @@ EEPROM:\n\
             return;
         }
         
-        auto hooks = webhooks->getWebhooks();
-        if (hooks.size() == 0) {
+        uint8_t hookCount = webhooks->getWebhookCount();
+        if (hookCount == 0) {
             request->send(400, "application/json", "{\"status\": \"ERROR\", \"message\": \"No webhooks configured\"}");
             return;
         }
         
-        DEBUG("Triggering flash webhook to %d endpoints\n", hooks.size());
+        DEBUG("Triggering flash webhook to %d endpoints\n", hookCount);
         
         // Send response before triggering webhooks to avoid blocking
         request->send(200, "application/json", "{\"status\": \"OK\", \"message\": \"Flash triggered\"}");

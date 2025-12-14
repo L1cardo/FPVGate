@@ -19,6 +19,13 @@
           <img src="logo-white.svg" alt="FPVGate" width="64" id="headerLogo" />
           <h1>FPVGate</h1>
         </div>
+        <div id="connectionIndicator" class="connection-indicator">
+          <div class="status-dot connected"></div>
+          <div class="connection-info" id="connectionInfo">
+            <div class="connection-mode">WiFi Connected</div>
+            <div class="connection-details" id="connectionDetails">Loading...</div>
+          </div>
+        </div>
       </nav>
       <ul class="nav-links">
         <li><a id="nav-link-race" class="tablinks active" onclick="openTab(event, 'race')">Race</a></li>
@@ -102,6 +109,24 @@
         <div id="raceDetails" class="race-details" style="display: none;">
           <button onclick="closeRaceDetails()" class="close-button">Close</button>
           <h3 id="raceDetailsTitle"></h3>
+          
+          <!-- Race Timeline -->
+          <div class="race-timeline">
+            <h4>Race Timeline</h4>
+            <div class="timeline-container" id="raceTimeline">
+              <div class="timeline-bar"></div>
+              <div class="timeline-playhead" id="timelinePlayhead"></div>
+            </div>
+            <div style="display: flex; gap: 8px; justify-content: center; margin-top: 12px;">
+              <button id="playbackBtn" onclick="playbackRace()" style="padding: 8px 16px; background-color: var(--primary-color);">▶ Play Race</button>
+              <button id="stopPlaybackBtn" onclick="stopPlayback()" style="padding: 8px 16px; background-color: var(--secondary-color); display: none;">■ Stop</button>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 14px; margin-left: 8px;">
+                <input type="checkbox" id="playbackWebhooks" checked style="margin: 0;">
+                Trigger Webhooks
+              </label>
+            </div>
+          </div>
+          
           <div class="stats-boxes">
             <div class="stat-box">
               <div class="stat-label">Fastest Lap</div>
@@ -114,6 +139,10 @@
             <div class="stat-box">
               <div class="stat-label">Best 3 Laps</div>
               <div class="stat-value" id="detailBest3">--</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-label">Total Time</div>
+              <div class="stat-value" id="detailTotalTime">--</div>
             </div>
           </div>
           <div class="analysis-tabs">
@@ -815,6 +844,7 @@
             <div id="settings-diagnostics" class="settings-section">
               <h2>System Diagnostics</h2>
               
+              <h3 style="margin-top: 0;">Hardware Tests</h3>
               <div style="margin-bottom: 16px; padding: 12px; background-color: var(--bg-secondary); border-radius: 8px; font-size: 14px;">
                 <p style="margin: 0;">Run comprehensive hardware and software tests to verify all FPVGate components are functioning correctly.</p>
               </div>
@@ -828,6 +858,22 @@
               
               <div id="testLoading" style="display: none; text-align: center; padding: 24px; background-color: var(--bg-secondary); border-radius: 8px; margin-bottom: 16px;">
                 <p style="margin: 0; font-size: 14px; color: var(--primary-color);">Running tests...</p>
+              </div>
+
+              <h3>System Monitor</h3>
+              <div style="margin-bottom: 8px; padding: 12px; background-color: var(--bg-secondary); border-radius: 8px; font-size: 14px;">
+                <p style="margin: 0;">Monitor real-time system events including WiFi status, race events, RSSI changes, and webhooks.</p>
+              </div>
+              <div style="margin-bottom: 12px; display: flex; gap: 8px; align-items: center;">
+                <button id="serialMonitorToggle" onclick="toggleSerialMonitor()" style="padding: 8px 16px; background-color: var(--accent-color);">Start Monitor</button>
+                <button onclick="clearSerialMonitor()" style="padding: 8px 16px; background-color: var(--secondary-color);">Clear</button>
+                <label style="display: flex; align-items: center; gap: 6px; margin-left: auto; font-size: 14px;">
+                  <input type="checkbox" id="serialAutoScroll" checked style="margin: 0;">
+                  Auto-scroll
+                </label>
+              </div>
+              <div id="serialMonitor" style="height: 300px; overflow-y: auto; background-color: #1a1a1a; color: #00ff00; padding: 12px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.4; border: 1px solid var(--border-color);">
+                <div style="color: #888;">System monitor stopped. Click "Start Monitor" to begin.</div>
               </div>
             </div>
           </div>

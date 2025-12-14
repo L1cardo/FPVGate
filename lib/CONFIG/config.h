@@ -81,7 +81,7 @@
 #define EEPROM_RESERVED_SIZE 512
 #define CONFIG_MAGIC_MASK (0b11U << 30)
 #define CONFIG_MAGIC (0b01U << 30)
-#define CONFIG_VERSION 5U
+#define CONFIG_VERSION 6U
 
 #define EEPROM_CHECK_TIME_MS 1000
 
@@ -114,9 +114,17 @@ typedef struct {
     uint8_t webhookRaceStop;   // Send /RaceStop webhook (0=disabled, 1=enabled)
     uint8_t webhookLap;        // Send /Lap webhook (0=disabled, 1=enabled)
     char pilotName[21];
+    char pilotCallsign[21];    // Pilot callsign (for announcements)
+    char pilotPhonetic[21];    // Phonetic pronunciation
+    uint32_t pilotColor;       // Pilot color (0xRRGGBB)
+    char theme[21];            // UI theme name
+    char selectedVoice[21];    // Voice selection (default, rachel, piper, etc)
+    char lapFormat[11];        // Lap announcement format (full, laptime, timeonly)
     char ssid[33];
     char password[33];
 } laptimer_config_t;
+
+class Storage;  // Forward declaration
 
 class Config {
    public:
@@ -127,6 +135,11 @@ class Config {
     void toJsonString(char* buf);
     void fromJson(JsonObject source);
     void handleEeprom(uint32_t currentTimeMs);
+    
+    // SD card backup/restore
+    void setStorage(Storage* stor) { storage = stor; }
+    bool saveToSD();
+    bool loadFromSD();
 
     // getters and setters
     uint16_t getFrequency();
@@ -155,6 +168,12 @@ class Config {
     char* getSsid();
     char* getPassword();
     uint8_t getOperationMode();
+    char* getPilotCallsign();
+    char* getPilotPhonetic();
+    uint32_t getPilotColor();
+    char* getTheme();
+    char* getSelectedVoice();
+    char* getLapFormat();
     
     // Setters for RotorHazard node mode
     void setFrequency(uint16_t freq);
@@ -185,6 +204,7 @@ class Config {
     laptimer_config_t conf;
     bool modified;
     volatile uint32_t checkTimeMs = 0;
+    Storage* storage = nullptr;
     void setDefaults();
 };
 

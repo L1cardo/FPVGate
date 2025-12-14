@@ -2,6 +2,151 @@
 
 All notable changes to FPVGate will be documented in this file.
 
+## [1.4.1] - 2024-12-14
+
+### Added - SD Card Configuration Backup/Restore
+- **Config Backup System** - Automatic and manual configuration backup to SD card
+  - Backup location: `/sd/config/config_backup.json`
+  - Automatic backup on every config save
+  - Manual restore via Configuration modal
+  - Persists all settings: WiFi, RX5808, LED, pilot info, webhooks, race settings
+  - UI controls in System Settings section
+  - Visual feedback for backup/restore operations
+- **Backup/Restore API Endpoints**
+  - `POST /config/backup` - Create backup on SD card
+  - `POST /config/restore` - Restore config from SD backup
+  - `GET /config/backup/check` - Verify backup exists
+  - Returns success/failure status with timestamps
+
+### Added - Device-Side Settings Storage
+- **Device Settings Persistence** - All settings now saved on device (config v6)
+  - Added `selectedVoice` (String) - Persists selected TTS voice
+  - Added `selectedTheme` (String) - Persists UI theme across clients
+  - No more localStorage dependency for critical settings
+  - Settings sync across all connected clients
+  - Restored on device boot
+- **Configuration Version 6** - Expanded config struct
+  - Theme selector now saves to EEPROM
+  - Voice selection persists through reboots
+  - Automatic migration from config v5 to v6
+  - Backwards compatible with older configs
+
+### Added - Built-In Serial Monitor
+- **Debug Logging System** - Real-time serial output in web interface
+  - New DebugLogger class for structured logging
+  - Circular buffer (100 lines) with timestamp and level
+  - Log levels: DEBUG, INFO, WARNING, ERROR
+  - Replaces all `Serial.println()` calls with `DEBUG_LOG()` macros
+  - Zero performance impact when debug disabled
+- **Serial Monitor UI** - Live debug viewer in Diagnostics tab
+  - Server-Sent Events (SSE) stream for real-time updates
+  - Auto-scroll with manual scroll lock
+  - Color-coded log levels (gray/blue/orange/red)
+  - Clear button to reset buffer
+  - 100-line rolling buffer
+  - No page refresh required
+- **Debug API Endpoints**
+  - `GET /debug/logs` - Retrieve current log buffer
+  - `GET /debug/stream` - SSE stream for live updates
+  - `POST /debug/clear` - Clear log buffer
+
+### Added - mDNS Improvements
+- **Enhanced mDNS Support** - Better device discovery and connectivity
+  - Hostname: `fpvgate.local` (replaces IP addresses)
+  - Service advertisement: `_http._tcp` on port 80
+  - Works in both AP and Station modes
+  - Automatic service re-registration after WiFi changes
+  - TXT records with version and device info
+  - Fallback to IP address if mDNS unavailable
+
+### Added - Race History Enhancements
+- **Improved Gate 1 Handling** - Separated from lap counting
+  - Gate 1 labeled as "Gate 1" (not "Lap 1")
+  - Lap count excludes Gate 1 pass
+  - First actual lap correctly numbered as "Lap 1"
+  - Gate 1 time calculated as race start to first gate pass
+- **Total Race Time Display** - Shows cumulative race duration
+  - Displayed in race list view
+  - Shown in race details stats
+  - Format: MM:SS.mmm or HH:MM:SS.mmm
+  - Sum of all lap times including Gate 1
+- **Improved Details View UX** - Better race history navigation
+  - Details now appear directly below selected race (slide-down)
+  - Smooth scroll to details view
+  - No more scrolling to bottom of page
+  - Click another race to move details
+
+### Added - Race Timeline and Playback
+- **Interactive Timeline Visualization** - Visual race event timeline
+  - Horizontal gradient timeline bar
+  - Flag-shaped markers for each event
+  - Color-coded: Green (start), Yellow (Gate 1), Blue (laps), Red (stop)
+  - Positioned by percentage of total race time
+  - Lap time indicators between events showing deltas
+  - Race Start/Stop positioned above timeline
+  - Gate 1/Laps positioned below timeline
+  - Clean layout with text backgrounds for readability
+- **Race Playback System** - Replay saved races
+  - Play/Stop controls for race replay
+  - Animated playhead showing current position
+  - Real-time webhook triggers during playback
+  - OSD updates during playback
+  - LED flash on each event
+  - Accurate timing based on recorded lap times
+  - Optional webhook toggle (useful for testing)
+- **Playback API Endpoints**
+  - `POST /timer/playbackStart` - Trigger race start event
+  - `POST /timer/playbackLap` - Trigger lap event (with lap number)
+  - `POST /timer/playbackStop` - Trigger race stop event
+  - All playback endpoints fire webhooks and broadcast SSE events
+
+### Fixed - LED Settings Persistence Bug
+- **LED Preset Reversion** - Fixed LEDs reverting to default on page refresh
+  - Split `changeLedPreset()` into UI-only and device command functions
+  - Page load now reads `ledPreset` from device config
+  - Manual override flag prevents status changes overriding user settings
+  - LEDs maintain user-selected preset through WiFi client connections
+- **LED Status Override** - Fixed `STATUS_USER_CONNECTED` overriding LED preset
+  - Modified `setStatus()` to check manual override flag
+  - Non-critical status changes ignored when manual override active
+  - Race events still override (intentional behavior)
+
+### Changed
+- **Configuration Structure** - Expanded device config (v6)
+  - Added voice and theme persistence fields
+  - Increased buffer sizes for string storage
+  - JSON serialization for backup/restore
+- **Race History UI** - Enhanced visualization and UX
+  - Timeline component with CSS triangle flags
+  - Playback controls integrated into details view
+  - Better event spacing and overlap handling
+  - Improved mobile responsiveness
+- **Debug Output** - Structured logging system
+  - All debug output now through DebugLogger
+  - Consistent log format with timestamps
+  - Web-accessible debug console
+  - Reduced serial clutter in production
+
+### Technical
+- **New Libraries**
+  - `lib/DEBUG/debuglogger.h` - Circular buffer debug logging system
+- **Configuration** - Config v6 schema
+  - Config struct: ~220 bytes (within EEPROM limits)
+  - Migration path: v5 → v6 automatic
+- **Storage** - SD card structure expansion
+  - `/sd/config/` directory for backups
+  - Atomic write operations for backup files
+  - JSON format for human-readable backups
+- **Frontend Enhancements**
+  - Timeline rendering with flexbox layout
+  - Playback state machine with setTimeout scheduling
+  - SSE debug log streaming
+  - Config backup/restore UI controls
+- **WebServer** - New endpoints (lines 459-503 in webserver.cpp)
+  - Playback endpoints for timeline feature
+  - Debug endpoints for serial monitor
+  - Config backup/restore endpoints
+
 ## [1.4.0] - 2024-12-10
 
 ### Added - Track Management System

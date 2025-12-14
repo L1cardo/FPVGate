@@ -100,7 +100,11 @@ void setup() {
     // To re-enable: uncomment the mode detection block below
     // ====================================================================
     
-    // Initialize config first
+    // Initialize storage first (LittleFS only at boot)
+    storage.init();
+    
+    // Initialize config and connect to storage for SD backup/restore
+    config.setStorage(&storage);
     config.init();
     
     /* DISABLED: RotorHazard mode detection
@@ -253,6 +257,9 @@ void loop() {
         transportManager.broadcastLapEvent(lapTime);
     }
     
+    // Process queued webhooks (non-blocking)
+    webhookManager.process();
+    
     // WiFi mode - original behavior (RotorHazard mode disabled)
     ElegantOTA.loop();
     
@@ -263,7 +270,14 @@ void loop() {
         DEBUG("\n=== Deferred SD card initialization ===\n");
         
         if (storage.initSDDeferred()) {
-            DEBUG("SD card ready, attempting sound migration...\n");
+            DEBUG("SD card ready!\n");
+            
+            // Try to restore config from SD backup if EEPROM was invalid
+            // (This handles the case where config was reset to defaults during boot)
+            DEBUG("Checking for config backup on SD card...\n");
+            if (config.loadFromSD()) {
+                DEBUG("Config restored from SD backup after SD mount\n");
+            }
             
             // Migrate sounds from LittleFS to SD card
             if (storage.migrateSoundsToSD()) {
