@@ -263,10 +263,15 @@ TestResult SelfTest::testBattery() {
     result.name = "Battery Monitor";
     uint32_t start = millis();
     
+    #ifdef PIN_VBAT
     // Read battery voltage
     int rawValue = analogRead(PIN_VBAT);
-    
     result.passed = true;
+    #else
+    int rawValue = -1; // Not supported
+    result.passed = false;
+    #endif
+    
     result.details = String("Raw: ") + String(rawValue);
     result.duration_ms = millis() - start;
     return result;
