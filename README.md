@@ -84,12 +84,20 @@ FPVGate measures lap times by detecting your drone's video transmitter signal st
 - Open source (MIT License)
 
 **Supported Bands:**
+
+*Analog FPV:*
 - **A (Boscam A)** - 5865, 5845, 5825, 5805, 5785, 5765, 5745, 5725
 - **B (Boscam B)** - 5733, 5752, 5771, 5790, 5809, 5828, 5847, 5866
 - **E (Boscam E)** - 5705, 5685, 5665, 5645, 5885, 5905, 5925, 5945
 - **F (Fatshark)** - 5740, 5760, 5780, 5800, 5820, 5840, 5860, 5880
 - **R (RaceBand)** - 5658, 5695, 5732, 5769, 5806, 5843, 5880, 5917
-- **L (LowBand)** -  5362, 5399, 5436, 5473, 5510, 5547, 5584, 5621
+- **L (LowBand)** - 5362, 5399, 5436, 5473, 5510, 5547, 5584, 5621
+
+*Digital FPV:*
+- **DJI** - v1-25, v1-25CE, v1_50, 03/04-20, 03/04-20CE, 03/04-40, 03/04-40CE, 04-R
+- **HDZero** - R, E, F, CE
+- **WalkSnail** - R, 25, 25CE, 50
+
 ---
 
 ## Quick Start
@@ -273,6 +281,15 @@ Exit  ├/──────────\─
 FPVGate is a heavily modified fork of [PhobosLT](https://github.com/phobos-/PhobosLT) by phobos-. The original project provided the foundation for RSSI-based lap timing.
 
 Portions of the timing logic are inspired by [RotorHazard](https://github.com/RotorHazard/RotorHazard).
+
+### Contributors
+
+Special thanks to **Richard Amiss** (@ramiss) for contributing:
+- Digital FPV band support (DJI, HDZero, WalkSnail)
+- Improved lap timer detection algorithm
+- Frequency changing bug fixes
+
+See [CONTRIBUTORS.md](CONTRIBUTORS.md) for full contributor list.
 
 ---
 
