@@ -5,8 +5,13 @@
 Email: ramiss.android@gmail.com
 
 ## Status
-- ✅ Integrated: Fixed changing frequencies (commit 2796744)
-- 🔄 In Progress: Remaining changes
+- ✅ **COMPLETED**: Integration finished (5 commits integrated)
+- ✅ Fixed changing frequencies (commit a18104e)
+- ✅ Digital FPV band support (commits 957c86e, 041dc62)
+- ✅ Improved lap timer detection (commit 911e640)
+- ✅ Contributor credits and documentation (commit 0502586)
+- ⚠️ **REMAINING**: Due to extensive codebase divergence, remaining bug fixes have conflicts
+- 📝 **NOTE**: Remaining fixes documented below for future reference
 
 ## Changes to Integrate
 
