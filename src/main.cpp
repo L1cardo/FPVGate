@@ -75,8 +75,7 @@ static void parallelTask(void *pvArgs) {
         buzzer.handleBuzzer(currentTimeMs);
         led.handleLed(currentTimeMs);
 #ifdef ESP32S3
-        // RGB LED disabled temporarily
-        // rgbLed.handleRgbLed(currentTimeMs);
+        rgbLed.handleRgbLed(currentTimeMs);
 #endif
         ws.handleWebUpdate(currentTimeMs);
         usbTransport.update(currentTimeMs);
@@ -158,18 +157,16 @@ void setup() {
     buzzer.init(PIN_BUZZER, BUZZER_INVERTED);
     led.init(PIN_LED, false);
 #ifdef ESP32S3
-    // TODO: RGB LED causing RMT channel conflicts - disabled temporarily
-    // rgbLed.init();
-    // // Apply saved LED configuration from config
-    // rgbLed.setBrightness(config.getLedBrightness());
-    // rgbLed.setEffectSpeed(config.getLedSpeed());
-    // rgbLed.setManualColor(config.getLedColor());
-    // rgbLed.setFadeColor(config.getLedFadeColor());
-    // rgbLed.setStrobeColor(config.getLedStrobeColor());
-    // rgbLed.enableManualOverride(config.getLedManualOverride());
-    // // Apply preset last so all colors are set
-    // rgbLed.setPreset((led_preset_e)config.getLedPreset());
-    DEBUG("RGB LED disabled - RMT channel issue\n");
+    rgbLed.init();
+    // Apply saved LED configuration from config
+    rgbLed.setBrightness(config.getLedBrightness());
+    rgbLed.setEffectSpeed(config.getLedSpeed());
+    rgbLed.setManualColor(config.getLedColor());
+    rgbLed.setFadeColor(config.getLedFadeColor());
+    rgbLed.setStrobeColor(config.getLedStrobeColor());
+    rgbLed.enableManualOverride(config.getLedManualOverride());
+    // Apply preset last so all colors are set
+    rgbLed.setPreset((led_preset_e)config.getLedPreset());
 #endif
     timer.init(&config, &rx, &buzzer, &led, &webhookManager);
     // Battery monitoring removed
@@ -251,14 +248,8 @@ void setup() {
 void loop() {
     uint32_t currentTimeMs = millis();
 
-    // LED Flashing
-    static bool led_on = false;
-    static uint32_t t = 0;
-    if (currentTimeMs - t > 500) {
-        t = millis();
-        led_on = !led_on;
-        digitalWrite(LED_BUILTIN, led_on ? HIGH : LOW);
-    }
+    // LED Flashing removed - LED_BUILTIN (GPIO48) conflicts with FastLED RMT channels
+    // External LEDs on GPIO5 are handled by rgbLed instead
     
     // Timing always runs
     timer.handleLapTimerUpdate(currentTimeMs);

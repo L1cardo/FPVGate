@@ -36,6 +36,13 @@ All notable changes to FPVGate will be documented in this file.
   - Added PIN_VBAT hardware detection in self-tests
   - Improved frequency validation and error handling
 
+### Fixed - RGB LED RMT Channel Conflict
+- **RGB LED Initialization** - Fixed RMT channel exhaustion causing boot crashes
+  - Removed LED_BUILTIN (GPIO48) usage that conflicted with FastLED
+  - ESP32-S3 has limited RMT channels (4 total), LED_BUILTIN consumed one
+  - External RGB LEDs (GPIO5) now function correctly without conflicts
+  - Device boots reliably with RGB LED effects working
+
 ### Changed
 - **README Updates** - Enhanced documentation
   - Added full digital band list
@@ -60,6 +67,8 @@ All notable changes to FPVGate will be documented in this file.
   - `lib/CONFIG/config.cpp` - Frequency management improvements
   - `lib/WEBSERVER/webserver.cpp` - Frequency endpoint fixes
   - `lib/RX5808/RX5808.cpp` - Module communication improvements
+  - `lib/RGBLED/rgbled.cpp` - Removed try-catch wrapper, simplified init
+  - `src/main.cpp` - Removed LED_BUILTIN usage to free RMT channel
   - `README.md` - Digital bands and contributor credits
 
 ### Contributors
