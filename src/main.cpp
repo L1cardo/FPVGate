@@ -75,7 +75,8 @@ static void parallelTask(void *pvArgs) {
         buzzer.handleBuzzer(currentTimeMs);
         led.handleLed(currentTimeMs);
 #ifdef ESP32S3
-        rgbLed.handleRgbLed(currentTimeMs);
+        // RGB LED disabled temporarily
+        // rgbLed.handleRgbLed(currentTimeMs);
 #endif
         ws.handleWebUpdate(currentTimeMs);
         usbTransport.update(currentTimeMs);
@@ -157,16 +158,18 @@ void setup() {
     buzzer.init(PIN_BUZZER, BUZZER_INVERTED);
     led.init(PIN_LED, false);
 #ifdef ESP32S3
-    rgbLed.init();
-    // Apply saved LED configuration from config
-    rgbLed.setBrightness(config.getLedBrightness());
-    rgbLed.setEffectSpeed(config.getLedSpeed());
-    rgbLed.setManualColor(config.getLedColor());
-    rgbLed.setFadeColor(config.getLedFadeColor());
-    rgbLed.setStrobeColor(config.getLedStrobeColor());
-    rgbLed.enableManualOverride(config.getLedManualOverride());
-    // Apply preset last so all colors are set
-    rgbLed.setPreset((led_preset_e)config.getLedPreset());
+    // TODO: RGB LED causing RMT channel conflicts - disabled temporarily
+    // rgbLed.init();
+    // // Apply saved LED configuration from config
+    // rgbLed.setBrightness(config.getLedBrightness());
+    // rgbLed.setEffectSpeed(config.getLedSpeed());
+    // rgbLed.setManualColor(config.getLedColor());
+    // rgbLed.setFadeColor(config.getLedFadeColor());
+    // rgbLed.setStrobeColor(config.getLedStrobeColor());
+    // rgbLed.enableManualOverride(config.getLedManualOverride());
+    // // Apply preset last so all colors are set
+    // rgbLed.setPreset((led_preset_e)config.getLedPreset());
+    DEBUG("RGB LED disabled - RMT channel issue\n");
 #endif
     timer.init(&config, &rx, &buzzer, &led, &webhookManager);
     // Battery monitoring removed

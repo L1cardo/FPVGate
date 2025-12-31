@@ -9,14 +9,22 @@
 
 void RgbLed::init() {
     // GPIO5 for external NeoPixel strip - must be compile-time constant for FastLED template
-    FastLED.addLeds<WS2812, 5, GRB>(leds, NUM_LEDS);
-    FastLED.setBrightness(80); // Medium-high brightness
-    // Initialize all LEDs to off
-    for (int i = 0; i < NUM_LEDS; i++) {
-        leds[i] = CRGB::Black;
+    try {
+        FastLED.addLeds<WS2812, 5, GRB>(leds, NUM_LEDS);
+        FastLED.setBrightness(80); // Medium-high brightness
+        // Initialize all LEDs to off
+        for (int i = 0; i < NUM_LEDS; i++) {
+            leds[i] = CRGB::Black;
+        }
+        FastLED.show();
+        DEBUG("RGB LED initialized on GPIO5 with %d LEDs\n", NUM_LEDS);
+    } catch (...) {
+        DEBUG("WARNING: RGB LED initialization failed - RMT channels exhausted. Device will continue without RGB LEDs.\n");
+        // Set all functions to no-op mode
+        for (int i = 0; i < NUM_LEDS; i++) {
+            leds[i] = CRGB::Black;
+        }
     }
-    FastLED.show();
-    DEBUG("RGB LED initialized on GPIO5 with %d LEDs\n", NUM_LEDS);
 }
 
 void RgbLed::handleRgbLed(uint32_t currentTimeMs) {
