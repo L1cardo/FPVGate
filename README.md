@@ -209,7 +209,7 @@ Exit  ├/──────────\─
 
 ## Project Status
 
-**Current Version:** v1.4.1  
+**Current Version:** v1.5.0
 **Platform:** ESP32-S3 (ESP32-C3 support legacy)  
 **License:** MIT  
 **Status:** Stable - actively maintained

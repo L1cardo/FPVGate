@@ -2,6 +2,75 @@
 
 All notable changes to FPVGate will be documented in this file.
 
+## [1.5.0] - 2024-12-31
+
+### Added - Digital FPV Band Support
+- **Comprehensive Digital Band Support** - Support for modern digital FPV systems
+  - **DJI Bands**: v1-25, v1-25CE, v1_50, 03/04-20, 03/04-20CE, 03/04-40, 03/04-40CE, 04-R
+  - **HDZero Bands**: R, E, F, CE
+  - **WalkSnail Bands**: R, 25, 25CE, 50
+  - 16 new digital bands added to band selector
+  - Full frequency lookup tables for all digital systems
+  - Seamless integration with existing analog band support
+
+### Added - Contributor System
+- **Contributors Documentation** - New CONTRIBUTORS.md file
+  - Credits for community contributions
+  - Guidelines for future contributors
+  - Pull request guidelines and standards
+- **Integration Plan Documentation** - RAMISS_INTEGRATION_PLAN.md
+  - Documents integration process from ramiss fork
+  - Tracks completed and pending features
+  - Reference for future fork integrations
+
+### Improved - Lap Timer Detection
+- **Enhanced Detection Algorithm** - Significantly improved lap detection accuracy
+  - Minimizes false positive lap triggers
+  - Better Kalman filter implementation for RSSI signal processing
+  - More reliable detection across varying signal conditions
+  - Improved state machine for crossing detection
+
+### Fixed - Frequency Management
+- **Frequency Changing Bug** - Fixed VTx frequency updates not applying correctly
+  - Frequency changes now persist properly to RX5808
+  - Added PIN_VBAT hardware detection in self-tests
+  - Improved frequency validation and error handling
+
+### Changed
+- **README Updates** - Enhanced documentation
+  - Added full digital band list
+  - Contributor acknowledgment section
+  - Updated supported bands with analog/digital categories
+- **Build System** - Verified build compatibility
+  - Confirmed ESP32-S3 builds without errors
+  - ArduinoJson deprecation warnings noted (non-critical)
+  - All libraries compile successfully
+
+### Technical
+- **New Files**
+  - `CONTRIBUTORS.md` - Community contributor credits
+  - `RAMISS_INTEGRATION_PLAN.md` - Integration tracking document
+- **Modified Files**
+  - `data/script.js` - Added 16 digital frequency bands to lookup table
+  - `data/index.html` - Digital band options in band selector
+  - `lib/LAPTIMER/laptimer.cpp` - Improved detection algorithm (271 insertions, 93 deletions)
+  - `lib/LAPTIMER/laptimer.h` - Enhanced state machine
+  - `lib/KALMAN/kalman.cpp` - Better signal filtering
+  - `lib/SELFTEST/selftest.cpp` - Added PIN_VBAT conditional check
+  - `lib/CONFIG/config.cpp` - Frequency management improvements
+  - `lib/WEBSERVER/webserver.cpp` - Frequency endpoint fixes
+  - `lib/RX5808/RX5808.cpp` - Module communication improvements
+  - `README.md` - Digital bands and contributor credits
+
+### Contributors
+Special thanks to **Richard Amiss** (@ramiss) for:
+- Digital FPV band support implementation
+- Improved lap timer detection algorithm
+- Frequency changing bug fixes
+- Kalman filter improvements
+
+All integrated commits include proper co-author attribution.
+
 ## [1.4.1] - 2024-12-14
 
 ### Added - SD Card Configuration Backup/Restore
