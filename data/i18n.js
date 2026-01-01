@@ -49,7 +49,7 @@ class I18n {
 
     if (typeof value === "string") {
       Object.keys(params).forEach((param) => {
-        value = value.replace(`{${param}}`, params[param]);
+        value = value.replaceAll(`{${param}}`, params[param]);
       });
     }
 
