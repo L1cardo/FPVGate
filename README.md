@@ -8,8 +8,6 @@
 
 A compact, self-contained RSSI-based lap timing solution for 5.8GHz FPV drones. Perfect for personal practice sessions, small indoor tracks, and training.
 
-![FPVGate](assets/logo-black.svg)
-
 ---
 
 ## What is FPVGate?
