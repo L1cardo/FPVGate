@@ -216,7 +216,16 @@ Exit  ├/──────────\─
 
 ### Recent Updates
 
-**v1.4.0 (Latest)**
+**v1.5.0 (Latest)**
+- Digital FPV Band Support - DJI, HDZero, WalkSnail (16 new bands)
+- Improved Lap Detection Algorithm - Minimizes false positives with enhanced signal processing
+- 5-stage RSSI filtering pipeline (Kalman, median, moving average, EMA, step limiter)
+- Enhanced Kalman filter with proper initialization
+- Fixed VTx frequency persistence bug
+- Fixed RGB LED RMT channel conflict on ESP32-S3
+- Contributor integration from Richard Amiss (@ramiss)
+
+**v1.4.0**
 - Track Management System - Create, edit, and manage track profiles with images
 - Distance Tracking - Real-time distance display and statistics
 - Webhook System - HTTP webhooks for external LED controller integration
@@ -225,7 +234,6 @@ Exit  ├/──────────\─
 - WiFi Reboot Fix - Apply WiFi settings button now properly reboots device
 - Enhanced Race Editing - Edit race metadata, lap times, and track associations
 - Track Selection - Choose active track before racing (persists to EEPROM)
-- Improved Configuration UI - Full-screen modal with organized sections
 
 **v1.3.3**
 - Modern Configuration UI with full-screen overlay modal
@@ -237,12 +245,6 @@ Exit  ├/──────────\─
 - Marshalling Mode for post-race lap editing
 - LED settings persistence to EEPROM
 
-**v1.3.1**
-- Fixed race history storage initialization bug
-- Improved calibration wizard with 3-peak marking system
-- Enhanced threshold calculation (peak-relative instead of baseline-relative)
-- Added visual smoothing to calibration chart for easier peak identification
-
 **v1.3.0**
 - iOS/Safari full audio support with vibration feedback
 - Mobile-responsive interface for phones and tablets
@@ -250,19 +252,6 @@ Exit  ├/──────────\─
 - OSD overlay system for streaming (transparent, real-time)
 - Cross-device race storage on SD card
 - Race tagging, naming, and detailed analysis
-- Enhanced race management with import/export
-
-**v1.2.1**
-- SD card storage for audio files
-- Automatic flash-to-SD migration
-- Enhanced OTA capacity (2MB updates)
-- Graceful fallback to LittleFS
-
-**v1.2.0**
-- System self-test diagnostics
-- PiperTTS integration
-- Enhanced LED presets with color pickers
-- Complete config export/import
 
 **[Full changelog →](CHANGELOG.md)**
 
