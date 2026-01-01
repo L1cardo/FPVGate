@@ -115,6 +115,7 @@
         "wizard_stop_recording": "Stop Recording",
         "wizard_marking_instructions": "Click on the chart to mark the highest point (peak) for each lap:",
         "wizard_highest_peak": "highest peak",
+        "wizard_highest_peak_tip": "Click at the <span style='color: #ff5555'>highest peak</span> for each gate pass",
         "wizard_mark_peaks_tip": "Mark 3 peaks total (one for each lap)",
         "wizard_auto_calc_tip": "Entry/Exit thresholds will be calculated automatically",
         "wizard_mark_peak_n": "Mark Peak {n}",

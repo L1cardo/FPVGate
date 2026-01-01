@@ -115,6 +115,7 @@
         "wizard_stop_recording": "停止录制",
         "wizard_marking_instructions": "点击图表标记每一圈的最高点（峰值）:",
         "wizard_highest_peak": "最高峰值",
+        "wizard_highest_peak_tip": "在每次过门时点击 <span style='color: #ff5555'>最高峰值</span>",
         "wizard_mark_peaks_tip": "共标记3个峰值（每圈一个）",
         "wizard_auto_calc_tip": "进入/退出阈值将自动计算",
         "wizard_mark_peak_n": "标记峰值 {n}",
