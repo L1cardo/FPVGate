@@ -7,6 +7,7 @@
     <link rel="icon" type="image/svg+xml" href="logo-white.svg" id="favicon" />
     <link rel="stylesheet" type="text/css" href="style.css" />
     <script src="jquery-3.7.1.min.js"></script>
+    <script src="i18n.js"></script>
     <script src="audio-announcer.js"></script>
     <script src="smoothie.js"></script>
     <script src="usb-transport.js"></script>
@@ -19,168 +20,174 @@
           <img src="logo-white.svg" alt="FPVGate" width="64" id="headerLogo" />
           <h1>FPVGate</h1>
         </div>
-        <div id="connectionIndicator" class="connection-indicator">
-          <div class="status-dot connected"></div>
-          <div class="connection-info" id="connectionInfo">
-            <div class="connection-mode">WiFi Connected</div>
-            <div class="connection-details" id="connectionDetails">Loading...</div>
+        <div class="header-right">
+          <div id="connectionIndicator" class="connection-indicator">
+            <div class="status-dot connected"></div>
+            <div class="connection-info" id="connectionInfo">
+              <div class="connection-mode" data-i18n="conn.wifi_connected">WiFi Connected</div>
+              <div class="connection-details" id="connectionDetails" data-i18n="conn.loading">Loading...</div>
+            </div>
           </div>
+          <select id="languageSelector" class="lang-selector">
+            <option value="en">English</option>
+            <option value="zh-CN">简体中文</option>
+          </select>
         </div>
       </nav>
       <ul class="nav-links">
-        <li><a id="nav-link-race" class="tablinks active" onclick="openTab(event, 'race')">Race</a></li>
-        <li><a id="nav-link-history" class="tablinks" onclick="openTab(event, 'history')">Race History</a></li>
-        <li><a id="nav-link-calib" class="tablinks" onclick="openTab(event, 'calib')">Calibration</a></li>
-        <li><a id="nav-link-config" class="tablinks" onclick="openSettingsModal()">Configuration</a></li>
+        <li><a id="nav-link-race" class="tablinks active" onclick="openTab(event, 'race')" data-i18n="nav.race">Race</a></li>
+        <li><a id="nav-link-history" class="tablinks" onclick="openTab(event, 'history')" data-i18n="nav.history">Race History</a></li>
+        <li><a id="nav-link-calib" class="tablinks" onclick="openTab(event, 'calib')" data-i18n="nav.calib">Calibration</a></li>
+        <li><a id="nav-link-config" class="tablinks" onclick="openSettingsModal()" data-i18n="nav.config">Configuration</a></li>
       </ul>
     </header>
 
     <main>
-      <div id="config" class="tabcontent" style="display: none;">
+      <div id="config" class="tabcontent" style="display: none">
         <!-- Config moved to settings modal -->
       </div>
 
       <div id="race" class="tabcontent">
-        <span id="timer">00:00:00s</span>
-        <div id="lapCounter" style="text-align: center; font-size: 18px; font-weight: bold; color: var(--primary-color); margin: 8px 0;">Lap 0</div>
+        <span id="timer" data-i18n="race.timer_default">00:00:00s</span>
+        <div id="lapCounter" style="text-align: center; font-size: 18px; font-weight: bold; color: var(--primary-color); margin: 8px 0" data-i18n="race.lap_counter">Lap 0</div>
         <div class="racebuttons">
-          <button id="startRaceButton" onclick="startRace()">Start Race</button>
-          <button id="stopRaceButton" onclick="stopRace()" disabled>Stop Race</button>
-          <button id="addLapButton" onclick="addManualLap()" disabled>Add Lap</button>
-          <button id="clearLapsButton" onclick="clearLaps()">Clear Laps</button>
+          <button id="startRaceButton" onclick="startRace()" data-i18n="race.start_race">Start Race</button>
+          <button id="stopRaceButton" onclick="stopRace()" disabled data-i18n="race.stop_race">Stop Race</button>
+          <button id="addLapButton" onclick="addManualLap()" disabled data-i18n="race.add_lap">Add Lap</button>
+          <button id="clearLapsButton" onclick="clearLaps()" data-i18n="race.clear_laps">Clear Laps</button>
         </div>
         <table id="lapTable">
           <tr>
-            <th>Lap No</th>
-            <th>Lap Time</th>
-            <th>Gap</th>
-            <th>Total Time</th>
+            <th data-i18n="race.table.lap_no">Lap No</th>
+            <th data-i18n="race.table.lap_time">Lap Time</th>
+            <th data-i18n="race.table.gap">Gap</th>
+            <th data-i18n="race.table.total_time">Total Time</th>
           </tr>
         </table>
-        
+
         <div id="lapAnalysis" class="lap-analysis">
-          <h3>Lap Analysis</h3>
-          
+          <h3 data-i18n="analysis.title">Lap Analysis</h3>
+
           <!-- Stats Boxes -->
           <div class="stats-boxes">
             <div class="stat-box">
-              <div class="stat-label">Fastest Lap</div>
+              <div class="stat-label" data-i18n="analysis.fastest_lap">Fastest Lap</div>
               <div class="stat-value" id="statFastest">--</div>
               <div class="stat-sublabel" id="statFastestLapNo"></div>
             </div>
             <div class="stat-box">
-              <div class="stat-label">Fastest 3 Consecutive</div>
+              <div class="stat-label" data-i18n="analysis.fastest_3_consec">Fastest 3 Consecutive</div>
               <div class="stat-value" id="statFastest3Consec">--</div>
               <div class="stat-sublabel" id="statFastest3ConsecLaps"></div>
             </div>
             <div class="stat-box">
-              <div class="stat-label">Best 3 Laps</div>
+              <div class="stat-label" data-i18n="analysis.best_3_laps">Best 3 Laps</div>
               <div class="stat-value" id="statBest3">--</div>
               <div class="stat-sublabel" id="statBest3Laps"></div>
             </div>
             <div class="stat-box">
-              <div class="stat-label">Median Lap</div>
+              <div class="stat-label" data-i18n="analysis.median_lap">Median Lap</div>
               <div class="stat-value" id="statMedian">--</div>
             </div>
           </div>
-          
+
           <!-- Chart Tabs -->
           <div class="analysis-tabs">
-            <button class="analysis-tab active" onclick="switchAnalysisMode('history')">Lap History</button>
-            <button class="analysis-tab" onclick="switchAnalysisMode('fastestRound')">Fastest Round (3 Laps)</button>
+            <button class="analysis-tab active" onclick="switchAnalysisMode('history')" data-i18n="analysis.tab_history">Lap History</button>
+            <button class="analysis-tab" onclick="switchAnalysisMode('fastestRound')" data-i18n="analysis.tab_fastest">Fastest Round (3 Laps)</button>
           </div>
           <div id="analysisContent" class="analysis-content">
-            <p class="no-data">Complete at least 1 lap to see analysis</p>
+            <p class="no-data" data-i18n="analysis.no_data">Complete at least 1 lap to see analysis</p>
           </div>
         </div>
       </div>
 
       <div id="history" class="tabcontent">
-        <h2>Race History</h2>
+        <h2 data-i18n="history.title">Race History</h2>
         <div class="history-controls">
-          <button onclick="downloadRaces()">Download Races</button>
-          <button onclick="document.getElementById('importFile').click()">Import Races</button>
-          <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importRaces(this)" />
-          <button onclick="clearAllRaces()" class="danger-button">Clear All</button>
+          <button onclick="downloadRaces()" data-i18n="history.download">Download Races</button>
+          <button onclick="document.getElementById('importFile').click()" data-i18n="history.import">Import Races</button>
+          <input type="file" id="importFile" accept=".json" style="display: none" onchange="importRaces(this)" />
+          <button onclick="clearAllRaces()" class="danger-button" data-i18n="history.clear_all">Clear All</button>
         </div>
         <div id="raceHistoryList" class="history-list">
-          <p class="no-data">No races saved yet</p>
+          <p class="no-data" data-i18n="history.no_data">No races saved yet</p>
         </div>
-        <div id="raceDetails" class="race-details" style="display: none;">
-          <button onclick="closeRaceDetails()" class="close-button">Close</button>
+        <div id="raceDetails" class="race-details" style="display: none">
+          <button onclick="closeRaceDetails()" class="close-button" data-i18n="history.close">Close</button>
           <h3 id="raceDetailsTitle"></h3>
-          
+
           <!-- Race Timeline -->
           <div class="race-timeline">
-            <h4>Race Timeline</h4>
+            <h4 data-i18n="history.timeline">Race Timeline</h4>
             <div class="timeline-container" id="raceTimeline">
               <div class="timeline-bar"></div>
               <div class="timeline-playhead" id="timelinePlayhead"></div>
             </div>
-            <div style="display: flex; gap: 8px; justify-content: center; margin-top: 12px;">
-              <button id="playbackBtn" onclick="playbackRace()" style="padding: 8px 16px; background-color: var(--primary-color);">▶ Play Race</button>
-              <button id="stopPlaybackBtn" onclick="stopPlayback()" style="padding: 8px 16px; background-color: var(--secondary-color); display: none;">■ Stop</button>
-              <label style="display: flex; align-items: center; gap: 6px; font-size: 14px; margin-left: 8px;">
-                <input type="checkbox" id="playbackWebhooks" checked style="margin: 0;">
-                Trigger Webhooks
+            <div style="display: flex; gap: 8px; justify-content: center; margin-top: 12px">
+              <button id="playbackBtn" onclick="playbackRace()" style="padding: 8px 16px; background-color: var(--primary-color)" data-i18n="history.play_race">▶ Play Race</button>
+              <button id="stopPlaybackBtn" onclick="stopPlayback()" style="padding: 8px 16px; background-color: var(--secondary-color); display: none" data-i18n="history.stop_race">■ Stop</button>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 14px; margin-left: 8px">
+                <input type="checkbox" id="playbackWebhooks" checked style="margin: 0" />
+                <span data-i18n="history.trigger_webhooks">Trigger Webhooks</span>
               </label>
             </div>
           </div>
-          
+
           <div class="stats-boxes">
             <div class="stat-box">
-              <div class="stat-label">Fastest Lap</div>
+              <div class="stat-label" data-i18n="analysis.fastest_lap">Fastest Lap</div>
               <div class="stat-value" id="detailFastest">--</div>
             </div>
             <div class="stat-box">
-              <div class="stat-label">Median Lap</div>
+              <div class="stat-label" data-i18n="analysis.median_lap">Median Lap</div>
               <div class="stat-value" id="detailMedian">--</div>
             </div>
             <div class="stat-box">
-              <div class="stat-label">Best 3 Laps</div>
+              <div class="stat-label" data-i18n="analysis.best_3_laps">Best 3 Laps</div>
               <div class="stat-value" id="detailBest3">--</div>
             </div>
             <div class="stat-box">
-              <div class="stat-label">Total Time</div>
+              <div class="stat-label" data-i18n="race.table.total_time">Total Time</div>
               <div class="stat-value" id="detailTotalTime">--</div>
             </div>
           </div>
           <div class="analysis-tabs">
-            <button class="analysis-tab active" onclick="switchDetailMode('history')">Lap History</button>
-            <button class="analysis-tab" onclick="switchDetailMode('fastestRound')">Fastest Round (3 Laps)</button>
+            <button class="analysis-tab active" onclick="switchDetailMode('history')" data-i18n="analysis.tab_history">Lap History</button>
+            <button class="analysis-tab" onclick="switchDetailMode('fastestRound')" data-i18n="analysis.tab_fastest">Fastest Round (3 Laps)</button>
           </div>
           <div id="detailContent" class="analysis-content"></div>
         </div>
       </div>
 
       <div id="calib" class="tabcontent">
-        <div style="margin-bottom: 16px;">
-          <button id="startWizardButton" onclick="startCalibrationWizard()" style="width: 100%; padding: 12px; font-size: 16px; background-color: var(--primary-color);">Start Calibration Wizard</button>
+        <div style="margin-bottom: 16px">
+          <button id="startWizardButton" onclick="startCalibrationWizard()" style="width: 100%; padding: 12px; font-size: 16px; background-color: var(--primary-color)" data-i18n="calib.start_wizard">Start Calibration Wizard</button>
         </div>
-        
+
         <div>
           <canvas id="rssiChart"></canvas>
         </div>
         <div class="config-item">
-          <label for="enter">Enter RSSI:</label>
+          <label for="enter" data-i18n="calib.enter_rssi">Enter RSSI:</label>
           <div class="input-with-value">
             <span id="enterSpan" class="val">120</span>
             <input type="range" min="50" max="255" step="1" id="enter" value="120" oninput="updateEnterRssi(this,value)" />
           </div>
         </div>
         <div class="config-item">
-          <label for="exit">Exit RSSI:</label>
+          <label for="exit" data-i18n="calib.exit_rssi">Exit RSSI:</label>
           <div class="input-with-value">
             <span id="exitSpan" class="val">100</span>
             <input type="range" min="50" max="255" step="1" id="exit" value="100" oninput="updateExitRssi(this,value)" />
           </div>
         </div>
-        <button onclick="saveConfig()">Save RSSI Thresholds</button>
+        <button onclick="saveConfig()" data-i18n="calib.save_thresholds">Save RSSI Thresholds</button>
       </div>
 
-      <div id="ota" class="tabcontent" style="display: none;">
+      <div id="ota" class="tabcontent" style="display: none">
         <div class="firmware-update">
-            <iframe src="http://www.fpvgate.xyz/update" width="100%" height="600px" frameborder="0"></iframe>
+          <iframe src="http://www.fpvgate.xyz/update" width="100%" height="600px" frameborder="0"></iframe>
         </div>
       </div>
     </main>
@@ -188,100 +195,96 @@
     <footer></footer>
 
     <!-- Edit Race Modal -->
-    <div id="editRaceModal" class="modal" style="display: none;" onclick="closeEditModalOnBackdrop(event)">
-      <div class="modal-content" style="max-width: 600px; max-height: 80vh; overflow-y: auto;">
-        <h3>Edit Race Details & Laps (Marshalling Mode)</h3>
+    <div id="editRaceModal" class="modal" style="display: none" onclick="closeEditModalOnBackdrop(event)">
+      <div class="modal-content" style="max-width: 600px; max-height: 80vh; overflow-y: auto">
+        <h3 data-i18n="history.edit_modal_title">Edit Race Details & Laps (Marshalling Mode)</h3>
         <div class="config-item">
-          <label for="raceName">Race Name:</label>
-          <input type="text" id="raceName" maxlength="50" placeholder="e.g. Morning Practice" />
+          <label for="raceName" data-i18n="history.edit_race_name">Race Name:</label>
+          <input type="text" id="raceName" maxlength="50" placeholder="e.g. Morning Practice" data-i18n-placeholder="history.edit_placeholder_name" />
         </div>
         <div class="config-item">
-          <label for="raceTag">Tag:</label>
-          <input type="text" id="raceTag" maxlength="30" placeholder="e.g. training, race, freestyle" />
+          <label for="raceTag" data-i18n="history.edit_tag">Tag:</label>
+          <input type="text" id="raceTag" maxlength="30" placeholder="e.g. training, race, freestyle" data-i18n-placeholder="history.edit_placeholder_tag" />
         </div>
         <div class="config-item">
-          <label for="raceDistance">Total Distance (meters):</label>
-          <input type="number" id="raceDistance" min="0" step="0.1" placeholder="e.g. 150.0" />
+          <label for="raceDistance" data-i18n="history.edit_distance">Total Distance (meters):</label>
+          <input type="number" id="raceDistance" min="0" step="0.1" placeholder="e.g. 150.0" data-i18n-placeholder="history.edit_placeholder_distance" />
         </div>
-        
-        <h4 style="margin-top: 24px; margin-bottom: 12px;">Lap Times</h4>
-        <div id="editLapsList" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px;"></div>
-        <button onclick="addNewLapToEdit()" style="width: 100%; background-color: var(--accent-color); margin-bottom: 16px;">+ Add Lap</button>
-        
-        <div style="display: flex; gap: 12px;">
-          <button onclick="saveRaceEdit()" style="flex: 1;">Save Changes</button>
-          <button onclick="closeEditModal()" style="flex: 1; background-color: var(--secondary-color);">Cancel</button>
+
+        <h4 style="margin-top: 24px; margin-bottom: 12px" data-i18n="history.edit_lap_times">Lap Times</h4>
+        <div id="editLapsList" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px"></div>
+        <button onclick="addNewLapToEdit()" style="width: 100%; background-color: var(--accent-color); margin-bottom: 16px" data-i18n="history.edit_add_lap">+ Add Lap</button>
+
+        <div style="display: flex; gap: 12px">
+          <button onclick="saveRaceEdit()" style="flex: 1" data-i18n="history.edit_save">Save Changes</button>
+          <button onclick="closeEditModal()" style="flex: 1; background-color: var(--secondary-color)" data-i18n="modals.track.cancel">Cancel</button>
         </div>
       </div>
     </div>
 
     <!-- Calibration Wizard Modal -->
-    <div id="calibrationWizardModal" class="modal" style="display: none;">
+    <div id="calibrationWizardModal" class="modal" style="display: none">
       <div class="modal-content wizard-modal">
-        <div id="wizardRecording" style="display: none;">
-          <h3>Calibration Wizard - Recording</h3>
+        <div id="wizardRecording" style="display: none">
+          <h3 data-i18n="calib.wizard_title_recording">Calibration Wizard - Recording</h3>
           <div class="wizard-instructions">
-            <p><strong>Instructions:</strong></p>
+            <p><strong data-i18n="calib.wizard_instructions_title">Instructions:</strong></p>
             <ol>
-              <li>Fly through the gate 3 times</li>
-              <li>Make sure you get clear signal peaks on each pass</li>
-              <li>Click "Stop Recording" when finished</li>
+              <li data-i18n="calib.wizard_step1">Fly through the gate 3 times</li>
+              <li data-i18n="calib.wizard_step2">Make sure you get clear signal peaks on each pass</li>
+              <li data-i18n="calib.wizard_step3">Click "Stop Recording" when finished</li>
             </ol>
           </div>
           <div class="wizard-status">
             <div class="recording-indicator">
               <span class="recording-dot"></span>
-              <span>Recording RSSI Data...</span>
+              <span data-i18n="calib.wizard_recording_rssi">Recording RSSI Data...</span>
             </div>
-            <div id="wizardSampleCount" style="margin-top: 8px; font-size: 14px;">Samples: 0</div>
+            <div id="wizardSampleCount" style="margin-top: 8px; font-size: 14px" data-i18n="calib.wizard_samples">Samples: 0</div>
           </div>
-          <div style="display: flex; gap: 12px; margin-top: 24px;">
-            <button onclick="stopCalibrationWizard()" style="flex: 1;">Stop Recording</button>
-            <button onclick="cancelCalibrationWizard()" style="flex: 1; background-color: var(--secondary-color);">Cancel</button>
+          <div style="display: flex; gap: 12px; margin-top: 24px">
+            <button onclick="stopCalibrationWizard()" style="flex: 1" data-i18n="calib.wizard_stop_recording">Stop Recording</button>
+            <button onclick="cancelCalibrationWizard()" style="flex: 1; background-color: var(--secondary-color)" data-i18n="modals.track.cancel">Cancel</button>
           </div>
         </div>
 
-        <div id="wizardMarking" style="display: none;">
-          <h3>Calibration Wizard - Mark Lap Peaks</h3>
+        <div id="wizardMarking" style="display: none">
+          <h3 data-i18n="calib.wizard_title_marking">Calibration Wizard - Mark Lap Peaks</h3>
           <div class="wizard-instructions">
-            <p><strong>Click on the chart to mark the highest point (peak) for each lap:</strong></p>
+            <p><strong data-i18n="calib.wizard_marking_instructions">Click on the chart to mark the highest point (peak) for each lap:</strong></p>
             <ul>
-              <li>Click at the <span style="color: #ff5555;">highest peak</span> for each gate pass</li>
-              <li>Mark 3 peaks total (one for each lap)</li>
-              <li>Entry/Exit thresholds will be calculated automatically</li>
+              <li data-i18n="calib.wizard_highest_peak_tip">Click at the <span style="color: #ff5555">highest peak</span> for each gate pass</li>
+              <li data-i18n="calib.wizard_mark_peaks_tip">Mark 3 peaks total (one for each lap)</li>
+              <li data-i18n="calib.wizard_auto_calc_tip">Entry/Exit thresholds will be calculated automatically</li>
             </ul>
           </div>
-          <div id="wizardMarkingStatus" style="margin: 12px 0; padding: 8px; background-color: var(--bg-secondary); border-radius: 4px; font-weight: bold;">
-            Mark Peak 1
+          <div id="wizardMarkingStatus" style="margin: 12px 0; padding: 8px; background-color: var(--bg-secondary); border-radius: 4px; font-weight: bold" data-i18n="calib.wizard_mark_peak_n">Mark Peak 1</div>
+          <div style="position: relative">
+            <canvas id="wizardChart" style="cursor: crosshair; border: 2px solid var(--border-color); border-radius: 4px"></canvas>
           </div>
-          <div style="position: relative;">
-            <canvas id="wizardChart" style="cursor: crosshair; border: 2px solid var(--border-color); border-radius: 4px;"></canvas>
-          </div>
-          <div style="display: flex; gap: 12px; margin-top: 16px;">
-            <button id="wizardUndoButton" onclick="undoLastMarker()" disabled style="flex: 1; background-color: var(--secondary-color);">Undo Last</button>
-            <button id="wizardCalculateButton" onclick="calculateThresholds()" disabled style="flex: 1;">Calculate Thresholds</button>
-            <button onclick="cancelCalibrationWizard()" style="flex: 1; background-color: var(--secondary-color);">Cancel</button>
+          <div style="display: flex; gap: 12px; margin-top: 16px">
+            <button id="wizardUndoButton" onclick="undoLastMarker()" disabled style="flex: 1; background-color: var(--secondary-color)" data-i18n="calib.wizard_undo">Undo Last</button>
+            <button id="wizardCalculateButton" onclick="calculateThresholds()" disabled style="flex: 1" data-i18n="calib.wizard_calculate">Calculate Thresholds</button>
+            <button onclick="cancelCalibrationWizard()" style="flex: 1; background-color: var(--secondary-color)" data-i18n="modals.track.cancel">Cancel</button>
           </div>
         </div>
 
-        <div id="wizardResults" style="display: none;">
-          <h3>Calibration Wizard - Results</h3>
+        <div id="wizardResults" style="display: none">
+          <h3 data-i18n="calib.wizard_title_results">Calibration Wizard - Results</h3>
           <div class="wizard-results-box">
             <div class="result-item">
-              <label>Calculated Enter RSSI:</label>
+              <label data-i18n="calib.wizard_enter_rssi">Calculated Enter RSSI:</label>
               <span id="calculatedEnterRssi" class="result-value">--</span>
             </div>
             <div class="result-item">
-              <label>Calculated Exit RSSI:</label>
+              <label data-i18n="calib.wizard_exit_rssi">Calculated Exit RSSI:</label>
               <span id="calculatedExitRssi" class="result-value">--</span>
             </div>
           </div>
-          <div style="margin: 16px 0; padding: 12px; background-color: var(--bg-secondary); border-radius: 4px; font-size: 14px;">
-            <strong>Note:</strong> These values have been calculated based on your lap data with safety margins. You can apply them now and fine-tune manually if needed.
-          </div>
-          <div style="display: flex; gap: 12px; margin-top: 16px;">
-            <button onclick="applyCalculatedThresholds()" style="flex: 1;">Apply Thresholds</button>
-            <button onclick="closeCalibrationWizard()" style="flex: 1; background-color: var(--secondary-color);">Close</button>
+          <div style="margin: 16px 0; padding: 12px; background-color: var(--bg-secondary); border-radius: 4px; font-size: 14px"><strong data-i18n="calib.wizard_note_title">Note:</strong> <span data-i18n="calib.wizard_results_note">These values have been calculated based on your lap data with safety margins. You can apply them now and fine-tune manually if needed.</span></div>
+          <div style="display: flex; gap: 12px; margin-top: 16px">
+            <button onclick="applyCalculatedThresholds()" style="flex: 1" data-i18n="calib.wizard_apply">Apply Thresholds</button>
+            <button onclick="closeCalibrationWizard()" style="flex: 1; background-color: var(--secondary-color)" data-i18n="history.close">Close</button>
           </div>
         </div>
       </div>
@@ -291,33 +294,33 @@
       <div class="settings-modal-container">
         <div class="settings-sidebar">
           <div class="settings-sidebar-header">
-            <h2>Settings</h2>
+            <h2 data-i18n="settings.title">Settings</h2>
             <button class="settings-close-button" onclick="closeSettingsModal()">✕</button>
           </div>
           <div class="settings-nav">
             <div class="settings-nav-item active" onclick="switchSettingsSection('general')">
-              <span>Lap & Announcer Settings</span>
+              <span data-i18n="settings.tabs.general">Lap & Announcer Settings</span>
             </div>
             <div class="settings-nav-item" onclick="switchSettingsSection('pilot')">
-              <span>Pilot Info</span>
+              <span data-i18n="settings.tabs.pilot">Pilot Info</span>
             </div>
             <div class="settings-nav-item" onclick="switchSettingsSection('tracks')">
-              <span>Track Data</span>
+              <span data-i18n="settings.tabs.tracks">Track Data</span>
             </div>
             <div class="settings-nav-item" onclick="switchSettingsSection('led')">
-              <span>LED Setup</span>
+              <span data-i18n="settings.tabs.led">LED Setup</span>
             </div>
             <div class="settings-nav-item" onclick="switchSettingsSection('wifi')">
-              <span>WiFi & Connection</span>
+              <span data-i18n="settings.tabs.wifi">WiFi & Connection</span>
             </div>
             <div class="settings-nav-item" onclick="switchSettingsSection('webhooks')">
-              <span>Webhooks</span>
+              <span data-i18n="settings.tabs.webhooks">Webhooks</span>
             </div>
             <div class="settings-nav-item" onclick="switchSettingsSection('system')">
-              <span>System Settings</span>
+              <span data-i18n="settings.tabs.system">System Settings</span>
             </div>
             <div class="settings-nav-item" onclick="switchSettingsSection('diagnostics')">
-              <span>Diagnostics</span>
+              <span data-i18n="settings.tabs.diagnostics">Diagnostics</span>
             </div>
           </div>
         </div>
@@ -325,69 +328,63 @@
           <div class="settings-content">
             <!-- General Section -->
             <div id="settings-general" class="settings-section active">
-              <h2>Lap & Announcer Settings</h2>
-              
-              <h3>Race Setup</h3>
+              <h2 data-i18n="settings.tabs.general">Lap & Announcer Settings</h2>
+
+              <h3 data-i18n="settings.race_setup.title">Race Setup</h3>
               <div class="config-item">
-                <label for="maxLaps">Number of Laps:</label>
+                <label for="maxLaps" data-i18n="settings.race_setup.num_laps">Number of Laps:</label>
                 <div class="input-with-value">
-                  <span class="val">Infinite  </span>
+                  <span class="val" data-i18n="settings.race_setup.infinite">Infinite </span>
                   <input type="range" id="maxLaps" step="1" min="0" max="50" value="0" oninput="updateMaxLaps(this,value)" />
                 </div>
               </div>
-              <div style="font-size: 12px; color: var(--secondary-color); margin-left: 170px; margin-top: -8px;">
-                Tip: Set to 0 for infinite laps
-              </div>
+              <div style="font-size: 12px; color: var(--secondary-color); margin-left: 170px; margin-top: -8px" data-i18n="settings.race_setup.infinite_tip">Tip: Set to 0 for infinite laps</div>
 
               <div class="config-item">
-                <label for="minLap">Minimum Lap Time:</label>
+                <label for="minLap" data-i18n="settings.race_setup.min_lap">Minimum Lap Time:</label>
                 <div class="input-with-value">
                   <span class="val">10.0s</span>
                   <input type="range" id="minLap" step="0.5" min="1" max="20" oninput="updateMinLap(this,value)" />
                 </div>
               </div>
 
-              <h3>TTS Settings</h3>
-              
+              <h3 data-i18n="settings.tts.title">TTS Settings</h3>
+
               <div class="config-item">
-                <label for="announcerSelect">Announcer Type:</label>
+                <label for="announcerSelect" data-i18n="settings.tts.announcer_type">Announcer Type:</label>
                 <select id="announcerSelect">
-                  <option value="none">None</option>
-                  <option value="beep">Beep</option>
-                  <option value="1lap">Lap Time</option>
-                  <option value="2lap">2 Consecutive Laps Time</option>
-                  <option value="3lap">3 Consecutive Laps Time</option>
+                  <option value="none" data-i18n="settings.tts.announcer_options.none">None</option>
+                  <option value="beep" data-i18n="settings.tts.announcer_options.beep">Beep</option>
+                  <option value="1lap" data-i18n="settings.tts.announcer_options.1lap">Lap Time</option>
+                  <option value="2lap" data-i18n="settings.tts.announcer_options.2lap">2 Consecutive Laps Time</option>
+                  <option value="3lap" data-i18n="settings.tts.announcer_options.3lap">3 Consecutive Laps Time</option>
                 </select>
               </div>
 
               <div class="config-item">
-                <label for="lapFormatSelect">Lap Announcement Format:</label>
+                <label for="lapFormatSelect" data-i18n="settings.tts.format">Lap Announcement Format:</label>
                 <select id="lapFormatSelect" onchange="saveLapFormat()">
-                  <option value="full" selected>Pilot + Lap + Time</option>
-                  <option value="laptime">Lap + Time</option>
-                  <option value="timeonly">Time Only</option>
+                  <option value="full" selected data-i18n="settings.tts.format_options.full">Pilot + Lap + Time</option>
+                  <option value="laptime" data-i18n="settings.tts.format_options.laptime">Lap + Time</option>
+                  <option value="timeonly" data-i18n="settings.tts.format_options.timeonly">Time Only</option>
                 </select>
               </div>
-              <div style="font-size: 12px; color: var(--secondary-color); margin-left: 170px; margin-top: -8px;">
-                Examples: "Louis Lap 5, 12.34" / "Lap 5, 12.34" / "12.34"
-              </div>
+              <div style="font-size: 12px; color: var(--secondary-color); margin-left: 170px; margin-top: -8px" data-i18n="settings.tts.examples">Examples: "Louis Lap 5, 12.34" / "Lap 5, 12.34" / "12.34"</div>
 
               <div class="config-item">
-                <label for="voiceSelect">Voice:</label>
+                <label for="voiceSelect" data-i18n="settings.tts.voice">Voice:</label>
                 <select id="voiceSelect" onchange="saveVoiceSelection()">
-                  <option value="default" selected>ElevenLabs (Sarah - Energetic)</option>
-                  <option value="rachel">ElevenLabs (Rachel - Calm)</option>
-                  <option value="adam">ElevenLabs (Adam - Deep Male)</option>
-                  <option value="antoni">ElevenLabs (Antoni - Male)</option>
-                  <option value="piper">PiperTTS (Lower Latency)</option>
+                  <option value="default" selected data-i18n="settings.tts.voice_options.eleven_sarah">ElevenLabs (Sarah - Energetic)</option>
+                  <option value="rachel" data-i18n="settings.tts.voice_options.eleven_rachel">ElevenLabs (Rachel - Calm)</option>
+                  <option value="adam" data-i18n="settings.tts.voice_options.eleven_adam">ElevenLabs (Adam - Deep Male)</option>
+                  <option value="antoni" data-i18n="settings.tts.voice_options.eleven_antoni">ElevenLabs (Antoni - Male)</option>
+                  <option value="piper" data-i18n="settings.tts.voice_options.piper">PiperTTS (Lower Latency)</option>
                 </select>
               </div>
-              <div style="font-size: 12px; color: var(--secondary-color); margin-left: 170px; margin-top: -8px;">
-                Note: ElevenLabs voices require pre-generated audio files
-              </div>
+              <div style="font-size: 12px; color: var(--secondary-color); margin-left: 170px; margin-top: -8px" data-i18n="settings.tts.eleven_labs_note">Note: ElevenLabs voices require pre-generated audio files</div>
 
               <div class="config-item">
-                <label for="rate">Announcer Rate:</label>
+                <label for="rate" data-i18n="settings.tts.rate">Announcer Rate:</label>
                 <div class="input-with-value">
                   <span class="val">1.0</span>
                   <input type="range" min="0.1" max="2" step="0.1" id="rate" oninput="updateAnnouncerRate(this,value)" />
@@ -395,22 +392,22 @@
               </div>
 
               <div class="config-item">
-                <label>Voice Control:</label>
-                <div style="display: flex; gap: 8px; flex: 1;">
-                  <button id="EnableAudioButton" onclick="enableAudioLoop()" style="flex: 1; padding: 8px; transition: background-color 0.3s;">Enable Voice</button>
-                  <button id="DisableAudioButton" onclick="disableAudioLoop()" style="flex: 1; padding: 8px; transition: background-color 0.3s;">Disable Voice</button>
-                  <button id="GenerateAudioButton" onclick="generateAudio()" style="flex: 1; padding: 8px;">Test Voice</button>
+                <label data-i18n="settings.tts.control">Voice Control:</label>
+                <div style="display: flex; gap: 8px; flex: 1">
+                  <button id="EnableAudioButton" onclick="enableAudioLoop()" style="flex: 1; padding: 8px; transition: background-color 0.3s" data-i18n="settings.tts.enable">Enable Voice</button>
+                  <button id="DisableAudioButton" onclick="disableAudioLoop()" style="flex: 1; padding: 8px; transition: background-color 0.3s" data-i18n="settings.tts.disable">Disable Voice</button>
+                  <button id="GenerateAudioButton" onclick="generateAudio()" style="flex: 1; padding: 8px" data-i18n="settings.tts.test">Test Voice</button>
                 </div>
               </div>
             </div>
 
             <!-- Pilot Section -->
             <div id="settings-pilot" class="settings-section">
-              <h2>Pilot Info</h2>
-              
+              <h2 data-i18n="settings.pilot.title">Pilot Info</h2>
+
               <div id="bandChannelFreq">
                 <div class="config-item">
-                  <label for="bandSelect">Band:</label>
+                  <label for="bandSelect" data-i18n="settings.pilot.band">Band:</label>
                   <select id="bandSelect">
                     <option value="A">A</option>
                     <option value="B">B</option>
@@ -430,15 +427,15 @@
                     <option value="HDZero-E">HDZero-E</option>
                     <option value="HDZero-F">HDZero-F</option>
                     <option value="HDZero-CE">HDZero-CE</option>
-                    <option value="WLKSnail-R">WLKSnail-R</option>
-                    <option value="WLKSnail-25">WLKSnail-25</option>
-                    <option value="WLKSnail-25CE">WLKSnail-25CE</option>
-                    <option value="WLKSnail-50">WLKSnail-50</option>
+                    <option value="WalkSnail-R">WalkSnail-R</option>
+                    <option value="WalkSnail-25">WalkSnail-25</option>
+                    <option value="WalkSnail-25CE">WalkSnail-25CE</option>
+                    <option value="WalkSnail-50">WalkSnail-50</option>
                   </select>
                 </div>
 
                 <div class="config-item">
-                  <label for="channelSelect">Channel:</label>
+                  <label for="channelSelect" data-i18n="settings.pilot.channel">Channel:</label>
                   <select id="channelSelect">
                     <option value="1">1</option>
                     <option value="2">2</option>
@@ -457,135 +454,127 @@
               </div>
 
               <div class="config-item">
-                <label for="pname">Pilot Name:</label>
-                <input type="text" id="pname" maxlength="20" placeholder="Full Name" />
+                <label for="pname" data-i18n="settings.pilot.name">Pilot Name:</label>
+                <input type="text" id="pname" maxlength="20" placeholder="Full Name" data-i18n-placeholder="settings.pilot.placeholder_name" />
               </div>
 
               <div class="config-item">
-                <label for="pcallsign">Pilot Callsign:</label>
-                <input type="text" id="pcallsign" maxlength="10" placeholder="Displayed Name" />
+                <label for="pcallsign" data-i18n="settings.pilot.callsign">Pilot Callsign:</label>
+                <input type="text" id="pcallsign" maxlength="10" placeholder="Displayed Name" data-i18n-placeholder="settings.pilot.placeholder_callsign" />
               </div>
 
               <div class="config-item">
-                <label for="pphonetic">Phonetic Name:</label>
-                <input type="text" id="pphonetic" maxlength="30" placeholder="How TTS pronounces your name" />
+                <label for="pphonetic" data-i18n="settings.pilot.phonetic">Phonetic Name:</label>
+                <input type="text" id="pphonetic" maxlength="30" placeholder="How TTS pronounces your name" data-i18n-placeholder="settings.pilot.placeholder_phonetic" />
               </div>
-              <div style="font-size: 12px; color: var(--secondary-color); margin-left: 170px; margin-top: -8px;">
-                Tip: Use phonetic spelling (e.g., "Louie" instead of "Louis")
-              </div>
+              <div style="font-size: 12px; color: var(--secondary-color); margin-left: 170px; margin-top: -8px" data-i18n="settings.pilot.phonetic_tip">Tip: Use phonetic spelling (e.g., "Louie" instead of "Louis")</div>
 
               <div class="config-item">
-                <label for="pilotColor">Pilot Color:</label>
+                <label for="pilotColor" data-i18n="settings.pilot.color">Pilot Color:</label>
                 <select id="pilotColor">
-                  <option value="#FF0000">Red</option>
-                  <option value="#FF6B00">Orange</option>
-                  <option value="#FFD700">Gold</option>
-                  <option value="#00FF00">Green</option>
-                  <option value="#00FFFF">Cyan</option>
-                  <option value="#0080FF" selected>Blue</option>
-                  <option value="#8000FF">Purple</option>
-                  <option value="#FF00FF">Magenta</option>
-                  <option value="#FF1493">Pink</option>
-                  <option value="#FFFFFF">White</option>
-                  <option value="#808080">Gray</option>
-                  <option value="#000000">Black</option>
-                  <option value="#8B4513">Brown</option>
-                  <option value="#00FF7F">Spring Green</option>
-                  <option value="#FF69B4">Hot Pink</option>
+                  <option value="#FF0000" data-i18n="settings.pilot.colors.red">Red</option>
+                  <option value="#FF6B00" data-i18n="settings.pilot.colors.orange">Orange</option>
+                  <option value="#FFD700" data-i18n="settings.pilot.colors.gold">Gold</option>
+                  <option value="#00FF00" data-i18n="settings.pilot.colors.green">Green</option>
+                  <option value="#00FFFF" data-i18n="settings.pilot.colors.cyan">Cyan</option>
+                  <option value="#0080FF" selected data-i18n="settings.pilot.colors.blue">Blue</option>
+                  <option value="#8000FF" data-i18n="settings.pilot.colors.purple">Purple</option>
+                  <option value="#FF00FF" data-i18n="settings.pilot.colors.magenta">Magenta</option>
+                  <option value="#FF1493" data-i18n="settings.pilot.colors.pink">Pink</option>
+                  <option value="#FFFFFF" data-i18n="settings.pilot.colors.white">White</option>
+                  <option value="#808080" data-i18n="settings.pilot.colors.gray">Gray</option>
+                  <option value="#000000" data-i18n="settings.pilot.colors.black">Black</option>
+                  <option value="#8B4513" data-i18n="settings.pilot.colors.brown">Brown</option>
+                  <option value="#00FF7F" data-i18n="settings.pilot.colors.spring_green">Spring Green</option>
+                  <option value="#FF69B4" data-i18n="settings.pilot.colors.hot_pink">Hot Pink</option>
                 </select>
-                <span id="colorPreview" style="display: inline-block; width: 30px; height: 30px; margin-left: 10px; border: 2px solid var(--border-color); border-radius: 4px; background-color: #FF0000;"></span>
+                <span id="colorPreview" style="display: inline-block; width: 30px; height: 30px; margin-left: 10px; border: 2px solid var(--border-color); border-radius: 4px; background-color: #ff0000"></span>
               </div>
             </div>
 
             <!-- Tracks Section -->
             <div id="settings-tracks" class="settings-section">
-              <h2>Track Data</h2>
-              
+              <h2 data-i18n="settings.tracks.title">Track Data</h2>
+
               <div class="config-item">
-                <label for="tracksEnabled">Enable Track Feature:</label>
-                <div style="flex: 1;">
+                <label for="tracksEnabled" data-i18n="settings.tracks.enable">Enable Track Feature:</label>
+                <div style="flex: 1">
                   <label class="switch">
-                    <input type="checkbox" id="tracksEnabled" onchange="toggleTracksEnabled(this.checked)">
+                    <input type="checkbox" id="tracksEnabled" onchange="toggleTracksEnabled(this.checked)" />
                     <span class="slider"></span>
                   </label>
                 </div>
               </div>
-              <div style="font-size: 12px; color: var(--secondary-color); margin-left: 170px; margin-top: -8px;">
-                Enable to create tracks and track distance during races
-              </div>
+              <div style="font-size: 12px; color: var(--secondary-color); margin-left: 170px; margin-top: -8px" data-i18n="settings.tracks.tip">Enable to create tracks and track distance during races</div>
 
-              <div id="tracksContent" style="display: none;">
-                <h3>Manage Tracks</h3>
-                
-                <div style="margin-bottom: 16px;">
-                  <button onclick="openCreateTrackModal()" style="width: 100%;">Create New Track</button>
+              <div id="tracksContent" style="display: none">
+                <h3 data-i18n="settings.tracks.manage">Manage Tracks</h3>
+
+                <div style="margin-bottom: 16px">
+                  <button onclick="openCreateTrackModal()" style="width: 100%" data-i18n="settings.tracks.create">Create New Track</button>
                 </div>
 
-                <div id="tracksList" style="margin-top: 16px;">
-                  <p style="color: var(--secondary-color); text-align: center;">No tracks created yet</p>
+                <div id="tracksList" style="margin-top: 16px">
+                  <p style="color: var(--secondary-color); text-align: center" data-i18n="settings.tracks.no_tracks">No tracks created yet</p>
                 </div>
 
-                <h3>Selected Track</h3>
+                <h3 data-i18n="settings.tracks.selected">Selected Track</h3>
                 <div class="config-item">
-                  <label for="selectedTrack">Active Track:</label>
+                  <label for="selectedTrack" data-i18n="settings.tracks.active">Active Track:</label>
                   <select id="selectedTrack" onchange="selectTrack()">
-                    <option value="0">None</option>
+                    <option value="0" data-i18n="settings.tracks.none">None</option>
                   </select>
                 </div>
-                <div style="font-size: 12px; color: var(--secondary-color); margin-left: 170px; margin-top: -8px;">
-                  Selected track will be used for distance calculation in races
-                </div>
+                <div style="font-size: 12px; color: var(--secondary-color); margin-left: 170px; margin-top: -8px" data-i18n="settings.tracks.active_tip">Selected track will be used for distance calculation in races</div>
               </div>
             </div>
 
             <!-- LED Section -->
             <div id="settings-led" class="settings-section">
-              <h2>LED Setup</h2>
-              
+              <h2 data-i18n="settings.led.title">LED Setup</h2>
+
               <div class="config-item">
                 <label for="ledPreset">LED Preset:</label>
                 <select id="ledPreset" onchange="changeLedPreset()">
-                  <option value="0">Off</option>
-                  <option value="1">Solid Colour</option>
-                  <option value="2" selected>Rainbow Wave</option>
-                  <option value="3">Color Fade</option>
-                  <option value="4">Fire</option>
-                  <option value="5">Ocean</option>
-                  <option value="6">Police</option>
-                  <option value="7">Strobe</option>
-                  <option value="8">Comet</option>
-                  <option value="9">Pilot Colour</option>
+                  <option value="0" data-i18n="settings.led.presets.off">Off</option>
+                  <option value="1" data-i18n="settings.led.presets.solid">Solid Colour</option>
+                  <option value="2" selected data-i18n="settings.led.presets.rainbow">Rainbow Wave</option>
+                  <option value="3" data-i18n="settings.led.presets.fade">Color Fade</option>
+                  <option value="4" data-i18n="settings.led.presets.fire">Fire</option>
+                  <option value="5" data-i18n="settings.led.presets.ocean">Ocean</option>
+                  <option value="6" data-i18n="settings.led.presets.police">Police</option>
+                  <option value="7" data-i18n="settings.led.presets.strobe">Strobe</option>
+                  <option value="8" data-i18n="settings.led.presets.comet">Comet</option>
+                  <option value="9" data-i18n="settings.led.presets.pilot">Pilot Colour</option>
                 </select>
               </div>
 
-              <div class="config-item" id="solidColorSection" style="display: none;">
-                <label for="ledSolidColor">Solid Color:</label>
-                <input type="color" id="ledSolidColor" value="#FF00FF" onchange="setSolidColor()" style="height: 40px; border: 2px solid var(--border-color); border-radius: 4px;" />
+              <div class="config-item" id="solidColorSection" style="display: none">
+                <label for="ledSolidColor" data-i18n="settings.led.solid_color">Solid Color:</label>
+                <input type="color" id="ledSolidColor" value="#FF00FF" onchange="setSolidColor()" style="height: 40px; border: 2px solid var(--border-color); border-radius: 4px" />
               </div>
 
-              <div class="config-item" id="fadeColorSection" style="display: none;">
-                <label for="ledFadeColor">Fade Color:</label>
-                <input type="color" id="ledFadeColor" value="#0080FF" onchange="setFadeColor()" style="height: 40px; border: 2px solid var(--border-color); border-radius: 4px;" />
+              <div class="config-item" id="fadeColorSection" style="display: none">
+                <label for="ledFadeColor" data-i18n="settings.led.fade_color">Fade Color:</label>
+                <input type="color" id="ledFadeColor" value="#0080FF" onchange="setFadeColor()" style="height: 40px; border: 2px solid var(--border-color); border-radius: 4px" />
               </div>
 
-              <div class="config-item" id="strobeColorSection" style="display: none;">
-                <label for="ledStrobeColor">Strobe Color:</label>
-                <input type="color" id="ledStrobeColor" value="#FFFFFF" onchange="setStrobeColor()" style="height: 40px; border: 2px solid var(--border-color); border-radius: 4px;" />
+              <div class="config-item" id="strobeColorSection" style="display: none">
+                <label for="ledStrobeColor" data-i18n="settings.led.strobe_color">Strobe Color:</label>
+                <input type="color" id="ledStrobeColor" value="#FFFFFF" onchange="setStrobeColor()" style="height: 40px; border: 2px solid var(--border-color); border-radius: 4px" />
               </div>
 
               <div class="config-item" id="ledSpeedSection">
-                <label for="ledSpeed">Animation Speed:</label>
+                <label for="ledSpeed" data-i18n="settings.led.speed">Animation Speed:</label>
                 <div class="input-with-value">
                   <span class="val">5</span>
                   <input type="range" id="ledSpeed" step="1" min="1" max="20" value="5" oninput="updateLedSpeed(this,value)" />
                 </div>
               </div>
-              <div id="ledSpeedNote" style="font-size: 12px; color: var(--secondary-color); margin-left: 170px; margin-top: -8px;">
-                Controls rainbow, pulse, and animation speed
-              </div>
+              <div id="ledSpeedNote" style="font-size: 12px; color: var(--secondary-color); margin-left: 170px; margin-top: -8px" data-i18n="settings.led.speed_tip">Controls rainbow, pulse, and animation speed</div>
 
               <div class="config-item">
-                <label for="ledBrightness">LED Brightness:</label>
+                <label for="ledBrightness" data-i18n="settings.led.brightness">LED Brightness:</label>
                 <div class="input-with-value">
                   <span class="val">80</span>
                   <input type="range" id="ledBrightness" step="5" min="0" max="255" value="80" oninput="updateLedBrightness(this,value)" />
@@ -593,176 +582,158 @@
               </div>
 
               <div class="config-item">
-                <label for="ledManualOverride">Manual LED Control:</label>
-                <div style="flex: 1;">
+                <label for="ledManualOverride" data-i18n="settings.led.manual">Manual LED Control:</label>
+                <div style="flex: 1">
                   <label class="switch">
-                    <input type="checkbox" id="ledManualOverride" onchange="toggleLedManualOverride(this.checked)">
+                    <input type="checkbox" id="ledManualOverride" onchange="toggleLedManualOverride(this.checked)" />
                     <span class="slider"></span>
                   </label>
                 </div>
               </div>
-              <div style="font-size: 12px; color: var(--secondary-color); margin-left: 170px; margin-top: -8px;">
-                When enabled, race events won't affect LED settings
-              </div>
+              <div style="font-size: 12px; color: var(--secondary-color); margin-left: 170px; margin-top: -8px" data-i18n="settings.led.manual_tip">When enabled, race events won't affect LED settings</div>
 
-              <h3 style="margin-top: 24px;">Gate LEDs (Webhooks)</h3>
+              <h3 style="margin-top: 24px" data-i18n="settings.led.gate_leds">Gate LEDs (Webhooks)</h3>
               <div class="config-item">
-                <label for="gateLEDsEnabled">Enable Gate LEDs:</label>
-                <div style="flex: 1;">
+                <label for="gateLEDsEnabled" data-i18n="settings.led.enable_gate">Enable Gate LEDs:</label>
+                <div style="flex: 1">
                   <label class="switch">
-                    <input type="checkbox" id="gateLEDsEnabled" onchange="toggleGateLEDs(this.checked)">
+                    <input type="checkbox" id="gateLEDsEnabled" onchange="toggleGateLEDs(this.checked)" />
                     <span class="slider"></span>
                   </label>
                 </div>
               </div>
-              <div style="font-size: 12px; color: var(--secondary-color); margin-left: 170px; margin-top: -8px;">
-                Send webhooks to external LED controllers during race events
-              </div>
+              <div style="font-size: 12px; color: var(--secondary-color); margin-left: 170px; margin-top: -8px" data-i18n="settings.led.gate_tip">Send webhooks to external LED controllers during race events</div>
 
-              <div id="gateLEDOptions" style="display: none; margin-left: 24px; margin-top: 12px;">
+              <div id="gateLEDOptions" style="display: none; margin-left: 24px; margin-top: 12px">
                 <div class="config-item">
-                  <label for="webhookRaceStart">Race Start Flash:</label>
-                  <div style="flex: 1;">
+                  <label for="webhookRaceStart" data-i18n="settings.led.race_start">Race Start Flash:</label>
+                  <div style="flex: 1">
                     <label class="switch">
-                      <input type="checkbox" id="webhookRaceStart" onchange="toggleWebhookRaceStart(this.checked)">
+                      <input type="checkbox" id="webhookRaceStart" onchange="toggleWebhookRaceStart(this.checked)" />
                       <span class="slider"></span>
                     </label>
                   </div>
                 </div>
-                <div style="font-size: 12px; color: var(--secondary-color); margin-left: 170px; margin-top: -8px;">
-                  Send /RaceStart webhook (2x Green flashes)
-                </div>
+                <div style="font-size: 12px; color: var(--secondary-color); margin-left: 170px; margin-top: -8px" data-i18n="settings.led.race_start_tip">Send /RaceStart webhook (2x Green flashes)</div>
 
-                <div class="config-item" style="margin-top: 12px;">
-                  <label for="webhookRaceStop">Race Stop Flash:</label>
-                  <div style="flex: 1;">
+                <div class="config-item" style="margin-top: 12px">
+                  <label for="webhookRaceStop" data-i18n="settings.led.race_stop">Race Stop Flash:</label>
+                  <div style="flex: 1">
                     <label class="switch">
-                      <input type="checkbox" id="webhookRaceStop" onchange="toggleWebhookRaceStop(this.checked)">
+                      <input type="checkbox" id="webhookRaceStop" onchange="toggleWebhookRaceStop(this.checked)" />
                       <span class="slider"></span>
                     </label>
                   </div>
                 </div>
-                <div style="font-size: 12px; color: var(--secondary-color); margin-left: 170px; margin-top: -8px;">
-                  Send /RaceStop webhook (2x Red flashes)
-                </div>
+                <div style="font-size: 12px; color: var(--secondary-color); margin-left: 170px; margin-top: -8px" data-i18n="settings.led.race_stop_tip">Send /RaceStop webhook (2x Red flashes)</div>
 
-                <div class="config-item" style="margin-top: 12px;">
-                  <label for="webhookLap">Lap Flash:</label>
-                  <div style="flex: 1;">
+                <div class="config-item" style="margin-top: 12px">
+                  <label for="webhookLap" data-i18n="settings.led.lap_flash">Lap Flash:</label>
+                  <div style="flex: 1">
                     <label class="switch">
-                      <input type="checkbox" id="webhookLap" onchange="toggleWebhookLap(this.checked)">
+                      <input type="checkbox" id="webhookLap" onchange="toggleWebhookLap(this.checked)" />
                       <span class="slider"></span>
                     </label>
                   </div>
                 </div>
-                <div style="font-size: 12px; color: var(--secondary-color); margin-left: 170px; margin-top: -8px;">
-                  Send /Lap webhook (White flash)
-                </div>
+                <div style="font-size: 12px; color: var(--secondary-color); margin-left: 170px; margin-top: -8px" data-i18n="settings.led.lap_flash_tip">Send /Lap webhook (White flash)</div>
               </div>
             </div>
 
             <!-- WiFi & Connection Section -->
             <div id="settings-wifi" class="settings-section">
-              <h2>WiFi & Connection</h2>
-              
-              <h3 style="margin-top: 0;">Connection Mode</h3>
+              <h2 data-i18n="settings.wifi.title">WiFi & Connection</h2>
+
+              <h3 style="margin-top: 0" data-i18n="settings.wifi.mode">Connection Mode</h3>
               <div class="config-item">
-                <label for="connectionMode">Connection Mode:</label>
+                <label for="connectionMode" data-i18n="settings.wifi.mode">Connection Mode:</label>
                 <select id="connectionMode" onchange="changeConnectionMode()">
-                  <option value="auto" selected>Auto (WiFi/USB)</option>
-                  <option value="wifi">WiFi Only</option>
-                  <option value="usb">USB Only</option>
+                  <option value="auto" selected data-i18n="settings.wifi.mode_options.auto">Auto (WiFi/USB)</option>
+                  <option value="wifi" data-i18n="settings.wifi.mode_options.wifi">WiFi Only</option>
+                  <option value="usb" data-i18n="settings.wifi.mode_options.usb">USB Only</option>
                 </select>
               </div>
-              <div style="font-size: 12px; color: var(--secondary-color); margin-left: 170px; margin-top: -8px;">
-                Auto mode detects USB connection, falls back to WiFi
-              </div>
+              <div style="font-size: 12px; color: var(--secondary-color); margin-left: 170px; margin-top: -8px" data-i18n="settings.wifi.mode_tip">Auto mode detects USB connection, falls back to WiFi</div>
 
-              <div class="config-item" id="comPortSection" style="display: none;">
-                <label for="comPort">COM Port:</label>
+              <div class="config-item" id="comPortSection" style="display: none">
+                <label for="comPort" data-i18n="settings.wifi.com_port">COM Port:</label>
                 <select id="comPort" onchange="selectComPort()">
-                  <option value="">Select a port...</option>
+                  <option value="" data-i18n="settings.wifi.select_port">Select a port...</option>
                 </select>
               </div>
-              <div id="comPortStatus" style="font-size: 12px; color: var(--secondary-color); margin-left: 170px; margin-top: -8px; display: none;">
-                Status: Disconnected
-              </div>
+              <div id="comPortStatus" style="font-size: 12px; color: var(--secondary-color); margin-left: 170px; margin-top: -8px; display: none" data-i18n="race.disconnected">Status: Disconnected</div>
 
-              <h3>WiFi Configuration</h3>
+              <h3 data-i18n="settings.wifi.title">WiFi Configuration</h3>
               <div class="config-item">
-                <label for="ssid">WiFi SSID:</label>
-                <input type="text" id="ssid" maxlength="32" placeholder="Enter WiFi network name" />
+                <label for="ssid" data-i18n="settings.wifi.ssid">WiFi SSID:</label>
+                <input type="text" id="ssid" maxlength="32" placeholder="Enter WiFi network name" data-i18n-placeholder="settings.wifi.placeholder_ssid" />
               </div>
 
               <div class="config-item">
-                <label for="pwd">WiFi Password:</label>
-                <input type="password" id="pwd" maxlength="32" placeholder="Enter WiFi password" />
+                <label for="pwd" data-i18n="settings.wifi.password">WiFi Password:</label>
+                <input type="password" id="pwd" maxlength="32" placeholder="Enter WiFi password" data-i18n-placeholder="settings.wifi.placeholder_pwd" />
               </div>
 
-              <div style="display: flex; gap: 12px; margin-top: 16px;">
-                <button onclick="applyWiFiSettings()" style="flex: 1;">Apply WiFi Settings</button>
-                <button onclick="resetWiFiSettings()" style="flex: 1; background-color: var(--secondary-color);">Reset</button>
+              <div style="display: flex; gap: 12px; margin-top: 16px">
+                <button onclick="applyWiFiSettings()" style="flex: 1" data-i18n="settings.wifi.apply">Apply WiFi Settings</button>
+                <button onclick="resetWiFiSettings()" style="flex: 1; background-color: var(--secondary-color)" data-i18n="settings.wifi.reset">Reset</button>
               </div>
-              <div style="font-size: 12px; color: var(--secondary-color); margin-top: 8px;">
-                Note: Device will restart after applying WiFi settings
-              </div>
+              <div style="font-size: 12px; color: var(--secondary-color); margin-top: 8px" data-i18n="settings.wifi.restart_note">Note: Device will restart after applying WiFi settings</div>
             </div>
 
             <!-- Webhooks Section -->
             <div id="settings-webhooks" class="settings-section">
-              <h2>Webhooks</h2>
-              
-              <div style="margin-bottom: 16px; padding: 12px; background-color: var(--bg-secondary); border-radius: 8px; font-size: 14px;">
-                <p style="margin: 0 0 8px 0;"><strong>Send HTTP POST requests to external LED controllers during race events.</strong></p>
-                <p style="margin: 0; color: var(--secondary-color);">Configure IP addresses to trigger webhooks: /Lap, /RaceStart, /RaceStop, /GhostLap, /off, /flash</p>
+              <h2 data-i18n="settings.webhooks.title">Webhooks</h2>
+
+              <div style="margin-bottom: 16px; padding: 12px; background-color: var(--bg-secondary); border-radius: 8px; font-size: 14px">
+                <p style="margin: 0 0 8px 0"><strong data-i18n="settings.webhooks.description">Send HTTP POST requests to external LED controllers during race events.</strong></p>
+                <p style="margin: 0; color: var(--secondary-color)" data-i18n="settings.webhooks.sub_description">Configure IP addresses to trigger webhooks: /Lap, /RaceStart, /RaceStop, /GhostLap, /off, /flash</p>
               </div>
 
               <div class="config-item">
-                <label for="webhooksEnabled">Enable Webhooks:</label>
-                <div style="flex: 1;">
+                <label for="webhooksEnabled" data-i18n="settings.webhooks.enable">Enable Webhooks:</label>
+                <div style="flex: 1">
                   <label class="switch">
-                    <input type="checkbox" id="webhooksEnabled" onchange="toggleWebhooks(this.checked)">
+                    <input type="checkbox" id="webhooksEnabled" onchange="toggleWebhooks(this.checked)" />
                     <span class="slider"></span>
                   </label>
                 </div>
               </div>
-              <div style="font-size: 12px; color: var(--secondary-color); margin-left: 170px; margin-top: -8px;">
-                Enable to send webhooks to configured devices
-              </div>
+              <div style="font-size: 12px; color: var(--secondary-color); margin-left: 170px; margin-top: -8px" data-i18n="settings.webhooks.enable_tip">Enable to send webhooks to configured devices</div>
 
-              <div id="webhooksContent" style="display: none;">
-                <h3>Webhook Endpoints</h3>
-                
-                <div style="margin-bottom: 16px;">
+              <div id="webhooksContent" style="display: none">
+                <h3 data-i18n="settings.webhooks.endpoints">Webhook Endpoints</h3>
+
+                <div style="margin-bottom: 16px">
                   <div class="config-item">
-                    <label for="webhookIP">LED Controller IP:</label>
-                    <input type="text" id="webhookIP" placeholder="e.g. 192.168.0.75" maxlength="15" pattern="\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}" style="flex: 1;" />
+                    <label for="webhookIP" data-i18n="settings.webhooks.controller_ip">LED Controller IP:</label>
+                    <input type="text" id="webhookIP" placeholder="e.g. 192.168.0.75" maxlength="15" pattern="\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}" style="flex: 1" data-i18n-placeholder="settings.webhooks.placeholder_ip" />
                   </div>
-                  <button onclick="addWebhook()" style="width: 100%; margin-top: 8px;">Add Webhook</button>
+                  <button onclick="addWebhook()" style="width: 100%; margin-top: 8px" data-i18n="settings.webhooks.add">Add Webhook</button>
                 </div>
 
-                <div id="webhooksList" style="margin-top: 16px;">
-                  <h4 style="margin-bottom: 12px;">Configured Webhooks</h4>
+                <div id="webhooksList" style="margin-top: 16px">
+                  <h4 style="margin-bottom: 12px" data-i18n="settings.webhooks.configured">Configured Webhooks</h4>
                   <div id="webhooksListContent">
-                    <p style="color: var(--secondary-color); text-align: center; padding: 16px;">No webhooks configured yet</p>
+                    <p style="color: var(--secondary-color); text-align: center; padding: 16px" data-i18n="settings.webhooks.no_webhooks">No webhooks configured yet</p>
                   </div>
                 </div>
 
-                <div style="margin-top: 24px; padding: 12px; background-color: var(--bg-secondary); border-radius: 8px;">
-                  <h4 style="margin: 0 0 8px 0;">Test Webhook</h4>
-                  <p style="margin: 0 0 12px 0; font-size: 13px; color: var(--secondary-color);">Send a test flash to all configured webhooks</p>
-                  <button onclick="testWebhook()" style="width: 100%; background-color: var(--accent-color);">Send Test Flash</button>
+                <div style="margin-top: 24px; padding: 12px; background-color: var(--bg-secondary); border-radius: 8px">
+                  <h4 style="margin: 0 0 8px 0" data-i18n="settings.webhooks.test">Test Webhook</h4>
+                  <p style="margin: 0 0 12px 0; font-size: 13px; color: var(--secondary-color)" data-i18n="settings.webhooks.test_description">Send a test flash to all configured webhooks</p>
+                  <button onclick="testWebhook()" style="width: 100%; background-color: var(--accent-color)" data-i18n="settings.webhooks.send_test">Send Test Flash</button>
                 </div>
 
-                <div style="margin-top: 16px; padding: 12px; background-color: var(--bg-secondary); border-radius: 8px; font-size: 13px;">
-                  <h4 style="margin: 0 0 8px 0;">Webhook Events:</h4>
-                  <ul style="margin: 0; padding-left: 20px; color: var(--secondary-color);">
-                    <li><strong>/Lap</strong> - White flash (0.5s) on lap completion</li>
-                    <li><strong>/RaceStart</strong> - 2x green flashes on race start</li>
-                    <li><strong>/RaceStop</strong> - 2x red flashes on race stop</li>
-                    <li><strong>/GhostLap</strong> - White flash on ghost lap (future)</li>
-                    <li><strong>/off</strong> - Turn off LEDs</li>
-                    <li><strong>/flash</strong> - Manual white flash</li>
+                <div style="margin-top: 16px; padding: 12px; background-color: var(--bg-secondary); border-radius: 8px; font-size: 13px">
+                  <h4 style="margin: 0 0 8px 0" data-i18n="settings.webhooks.events_title">Webhook Events:</h4>
+                  <ul style="margin: 0; padding-left: 20px; color: var(--secondary-color)">
+                    <li><strong>/Lap</strong> - <span data-i18n="settings.webhooks.event_lap">White flash (0.5s) on lap completion</span></li>
+                    <li><strong>/RaceStart</strong> - <span data-i18n="settings.webhooks.event_start">2x green flashes on race start</span></li>
+                    <li><strong>/RaceStop</strong> - <span data-i18n="settings.webhooks.event_stop">2x red flashes on race stop</span></li>
+                    <li><strong>/GhostLap</strong> - <span data-i18n="settings.webhooks.event_ghost">White flash on ghost lap (future)</span></li>
+                    <li><strong>/off</strong> - <span data-i18n="settings.webhooks.event_off">Turn off LEDs</span></li>
+                    <li><strong>/flash</strong> - <span data-i18n="settings.webhooks.event_flash">Manual white flash</span></li>
                   </ul>
                 </div>
               </div>
@@ -770,22 +741,22 @@
 
             <!-- System Section -->
             <div id="settings-system" class="settings-section">
-              <h2>System Settings</h2>
-              
-              <h3 style="margin-top: 0;">Battery Monitoring</h3>
+              <h2 data-i18n="settings.system.title">System Settings</h2>
+
+              <h3 style="margin-top: 0" data-i18n="settings.system.battery">Battery Monitoring</h3>
               <div class="config-item">
-                <label for="batteryMonitorToggle">Battery Monitoring:</label>
-                <div style="flex: 1;">
+                <label for="batteryMonitorToggle" data-i18n="settings.system.enable_battery">Battery Monitoring:</label>
+                <div style="flex: 1">
                   <label class="switch">
-                    <input type="checkbox" id="batteryMonitorToggle" onchange="toggleBatteryMonitor(this.checked)">
+                    <input type="checkbox" id="batteryMonitorToggle" onchange="toggleBatteryMonitor(this.checked)" />
                     <span class="slider"></span>
                   </label>
                 </div>
               </div>
 
-              <div id="batteryMonitoringSection" style="display: none;">
+              <div id="batteryMonitoringSection" style="display: none">
                 <div class="config-item">
-                  <label for="alarmThreshold">Low Battery Alarm:</label>
+                  <label for="alarmThreshold" data-i18n="settings.system.low_battery">Low Battery Alarm:</label>
                   <div class="input-with-value">
                     <span class="val">3.6v</span>
                     <input type="range" id="alarmThreshold" step="0.1" min="0.0" max="3.6" oninput="updateAlarmThreshold(this,value)" />
@@ -793,26 +764,24 @@
                 </div>
 
                 <div class="config-item">
-                  <label for="bvolt">Battery Voltage:</label>
+                  <label for="bvolt" data-i18n="settings.system.battery_voltage">Battery Voltage:</label>
                   <span class="val" id="bvolt">--</span>
                 </div>
               </div>
 
-              <h3 style="margin-top: 0;">RSSI Detection</h3>
+              <h3 style="margin-top: 0" data-i18n="settings.system.rssi_detection">RSSI Detection</h3>
               <div class="config-item">
-                <label for="rssiSensitivity">RSSI Sensitivity:</label>
+                <label for="rssiSensitivity" data-i18n="settings.system.rssi_sensitivity">RSSI Sensitivity:</label>
                 <select id="rssiSensitivity">
-                  <option value="0">Normal (Legacy)</option>
-                  <option value="1" selected>High (1.5x Boost)</option>
+                  <option value="0" data-i18n="settings.system.sensitivity_options.normal">Normal (Legacy)</option>
+                  <option value="1" selected data-i18n="settings.system.sensitivity_options.high">High (1.5x Boost)</option>
                 </select>
               </div>
-              <div style="font-size: 12px; color: var(--secondary-color); margin-left: 170px; margin-top: -8px;">
-                High sensitivity provides better weak signal detection. Use Normal if experiencing false triggers.
-              </div>
+              <div style="font-size: 12px; color: var(--secondary-color); margin-left: 170px; margin-top: -8px" data-i18n="settings.system.sensitivity_tip">High sensitivity provides better weak signal detection. Use Normal if experiencing false triggers.</div>
 
-              <h3>Appearance</h3>
+              <h3 data-i18n="settings.system.appearance">Appearance</h3>
               <div class="config-item">
-                <label for="themeSelect">Theme:</label>
+                <label for="themeSelect" data-i18n="settings.system.theme">Theme:</label>
                 <select id="themeSelect" onchange="changeTheme()">
                   <option value="lighter">Material Lighter</option>
                   <option value="oceanic" selected>Material Oceanic</option>
@@ -840,92 +809,90 @@
                 </select>
               </div>
 
-              <h3>Integration</h3>
+              <h3 data-i18n="settings.integration.title">Integration</h3>
               <div class="config-item">
-                <label>OBS Streaming Overlay:</label>
-                <button onclick="openOSD()" style="padding: 8px 16px; background-color: var(--accent-color);">Open OSD & Copy URL</button>
+                <label data-i18n="settings.integration.obs_overlay">OBS Streaming Overlay:</label>
+                <button onclick="openOSD()" style="padding: 8px 16px; background-color: var(--accent-color)" data-i18n="settings.integration.open_osd">Open OSD & Copy URL</button>
               </div>
-              <div style="font-size: 12px; color: var(--secondary-color); margin-left: 170px; margin-top: -8px;">
-                Opens overlay in new tab and copies URL for OBS Browser Source
-              </div>
+              <div style="font-size: 12px; color: var(--secondary-color); margin-left: 170px; margin-top: -8px" data-i18n="settings.integration.obs_tip">Opens overlay in new tab and copies URL for OBS Browser Source</div>
 
-              <h3>Firmware</h3>
+              <h3 data-i18n="settings.firmware.title">Firmware</h3>
               <div class="config-item">
-                <label>Firmware Update:</label>
-                <a href="/update" target="_blank" class="update-link">Open Update Page</a>
+                <label data-i18n="settings.firmware.update">Firmware Update:</label>
+                <a href="/update" target="_blank" class="update-link" data-i18n="settings.firmware.open_page">Open Update Page</a>
               </div>
             </div>
 
             <!-- Diagnostics Section -->
             <div id="settings-diagnostics" class="settings-section">
-              <h2>System Diagnostics</h2>
-              
-              <h3 style="margin-top: 0;">Hardware Tests</h3>
-              <div style="margin-bottom: 16px; padding: 12px; background-color: var(--bg-secondary); border-radius: 8px; font-size: 14px;">
-                <p style="margin: 0;">Run comprehensive hardware and software tests to verify all FPVGate components are functioning correctly.</p>
+              <h2 data-i18n="settings.diagnostics.title">System Diagnostics</h2>
+
+              <h3 style="margin-top: 0" data-i18n="diag.hardware_tests">Hardware Tests</h3>
+              <div style="margin-bottom: 16px; padding: 12px; background-color: var(--bg-secondary); border-radius: 8px; font-size: 14px">
+                <p style="margin: 0" data-i18n="diag.description">Run comprehensive hardware and software tests to verify all FPVGate components are functioning correctly.</p>
               </div>
 
-              <button id="runTestsButton" onclick="runSelfTest()" style="width: 100%; padding: 12px; margin-bottom: 16px; background-color: var(--accent-color);">Run System Self-Test</button>
-              
-              <div id="testResults" style="display: none; margin-bottom: 16px;">
-                <h4 style="margin-bottom: 12px; color: var(--primary-color);">Test Results</h4>
+              <button id="runTestsButton" onclick="runSelfTest()" style="width: 100%; padding: 12px; margin-bottom: 16px; background-color: var(--accent-color)" data-i18n="diag.run_test">Run System Self-Test</button>
+
+              <div id="testResults" style="display: none; margin-bottom: 16px">
+                <h4 style="margin-bottom: 12px; color: var(--primary-color)" data-i18n="diag.results_title">Test Results</h4>
                 <div id="testResultsList"></div>
               </div>
-              
-              <div id="testLoading" style="display: none; text-align: center; padding: 24px; background-color: var(--bg-secondary); border-radius: 8px; margin-bottom: 16px;">
-                <p style="margin: 0; font-size: 14px; color: var(--primary-color);">Running tests...</p>
+
+              <div id="testLoading" style="display: none; text-align: center; padding: 24px; background-color: var(--bg-secondary); border-radius: 8px; margin-bottom: 16px">
+                <p style="margin: 0; font-size: 14px; color: var(--primary-color)" data-i18n="diag.running">Running tests...</p>
               </div>
 
-              <h3>System Monitor</h3>
-              <div style="margin-bottom: 8px; padding: 12px; background-color: var(--bg-secondary); border-radius: 8px; font-size: 14px;">
-                <p style="margin: 0;">Monitor real-time system events including WiFi status, race events, RSSI changes, and webhooks.</p>
+              <h3 data-i18n="diag.monitor_title">System Monitor</h3>
+              <div style="margin-bottom: 8px; padding: 12px; background-color: var(--bg-secondary); border-radius: 8px; font-size: 14px">
+                <p style="margin: 0" data-i18n="diag.monitor_description">Monitor real-time system events including WiFi status, race events, RSSI changes, and webhooks.</p>
               </div>
-              <div style="margin-bottom: 12px; display: flex; gap: 8px; align-items: center;">
-                <button id="serialMonitorToggle" onclick="toggleSerialMonitor()" style="padding: 8px 16px; background-color: var(--accent-color);">Start Monitor</button>
-                <button onclick="clearSerialMonitor()" style="padding: 8px 16px; background-color: var(--secondary-color);">Clear</button>
-                <label style="display: flex; align-items: center; gap: 6px; margin-left: auto; font-size: 14px;">
-                  <input type="checkbox" id="serialAutoScroll" checked style="margin: 0;">
-                  Auto-scroll
+              <div style="margin-bottom: 12px; display: flex; gap: 8px; align-items: center">
+                <button id="serialMonitorToggle" onclick="toggleSerialMonitor()" style="padding: 8px 16px; background-color: var(--accent-color)" data-i18n="diag.start_monitor">Start Monitor</button>
+                <button onclick="clearSerialMonitor()" style="padding: 8px 16px; background-color: var(--secondary-color)" data-i18n="diag.clear">Clear</button>
+                <label style="display: flex; align-items: center; gap: 6px; margin-left: auto; font-size: 14px">
+                  <input type="checkbox" id="serialAutoScroll" checked style="margin: 0" />
+                  <span data-i18n="diag.auto_scroll">Auto-scroll</span>
                 </label>
               </div>
-              <div id="serialMonitor" style="height: 300px; overflow-y: auto; background-color: #1a1a1a; color: #00ff00; padding: 12px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.4; border: 1px solid var(--border-color);">
-                <div style="color: #888;">System monitor stopped. Click "Start Monitor" to begin.</div>
+              <div id="serialMonitor" style="height: 300px; overflow-y: auto; background-color: #1a1a1a; color: #00ff00; padding: 12px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.4; border: 1px solid var(--border-color)">
+                <div style="color: #888" data-i18n="diag.monitor_stopped">System monitor stopped. Click "Start Monitor" to begin.</div>
               </div>
             </div>
           </div>
           <div class="settings-footer">
-            <button onclick="downloadConfig()" style="background-color: var(--secondary-color);">Download Config</button>
-            <button onclick="document.getElementById('importConfigFile').click()" style="background-color: var(--secondary-color);">Import Config</button>
-            <input type="file" id="importConfigFile" accept=".json" style="display: none;" onchange="importConfig(this)" />
-            <button onclick="saveConfig()">Save Configuration</button>
+            <button onclick="downloadConfig()" style="background-color: var(--secondary-color)" data-i18n="settings.config.download">Download Config</button>
+            <button onclick="document.getElementById('importConfigFile').click()" style="background-color: var(--secondary-color)" data-i18n="settings.config.import">Import Config</button>
+            <input type="file" id="importConfigFile" accept=".json" style="display: none" onchange="importConfig(this)" />
+            <button onclick="saveConfig()" data-i18n="settings.config.save">Save Configuration</button>
           </div>
         </div>
       </div>
     </div>
 
     <!-- Track Create/Edit Modal -->
-    <div id="trackModal" class="modal" style="display: none;">
+    <div id="trackModal" class="modal" style="display: none">
       <div class="modal-content">
-        <h3 id="trackModalTitle">Create Track</h3>
+        <h3 id="trackModalTitle" data-i18n="modals.track.create_title">Create Track</h3>
         <div class="config-item">
-          <label for="trackName">Track Name:</label>
-          <input type="text" id="trackName" maxlength="50" placeholder="e.g. My Local Track" />
-        </div>
-        <div class="config-item">
-          <label for="trackDistance">Distance (meters):</label>
-          <input type="number" id="trackDistance" step="0.1" min="0" placeholder="e.g. 150.5" />
+          <label for="trackName" data-i18n="modals.track.name">Track Name:</label>
+          <input type="text" id="trackName" maxlength="50" placeholder="e.g. My Local Track" data-i18n-placeholder="modals.track.placeholder_name" />
         </div>
         <div class="config-item">
-          <label for="trackTags">Tags:</label>
-          <input type="text" id="trackTags" maxlength="100" placeholder="e.g. outdoor, technical, fast" />
+          <label for="trackDistance" data-i18n="modals.track.distance">Distance (meters):</label>
+          <input type="number" id="trackDistance" step="0.1" min="0" placeholder="e.g. 150.5" data-i18n-placeholder="modals.track.placeholder_distance" />
         </div>
-        <div class="config-item" style="align-items: flex-start;">
-          <label for="trackNotes">Notes:</label>
-          <textarea id="trackNotes" maxlength="200" rows="3" placeholder="Optional notes about the track..." style="flex: 1; padding: 8px; background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 4px; color: var(--primary-color); font-family: inherit; resize: vertical;"></textarea>
+        <div class="config-item">
+          <label for="trackTags" data-i18n="modals.track.tags">Tags:</label>
+          <input type="text" id="trackTags" maxlength="100" placeholder="e.g. outdoor, technical, fast" data-i18n-placeholder="modals.track.placeholder_tags" />
         </div>
-        <div style="display: flex; gap: 12px; margin-top: 16px;">
-          <button onclick="saveTrack()" id="saveTrackBtn">Save Track</button>
-          <button onclick="closeTrackModal()" style="background-color: var(--secondary-color);">Cancel</button>
+        <div class="config-item" style="align-items: flex-start">
+          <label for="trackNotes" data-i18n="modals.track.notes">Notes:</label>
+          <textarea id="trackNotes" maxlength="200" rows="3" placeholder="Optional notes about the track..." style="flex: 1; padding: 8px; background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 4px; color: var(--primary-color); font-family: inherit; resize: vertical" data-i18n-placeholder="modals.track.placeholder_notes"></textarea>
+        </div>
+        <div style="display: flex; gap: 12px; margin-top: 16px">
+          <button onclick="saveTrack()" id="saveTrackBtn" data-i18n="modals.track.save">Save Track</button>
+          <button onclick="closeTrackModal()" style="background-color: var(--secondary-color)" data-i18n="modals.track.cancel">Cancel</button>
         </div>
       </div>
     </div>
@@ -933,5 +900,3 @@
     <script src="script.js"></script>
   </body>
 </html>
-
-

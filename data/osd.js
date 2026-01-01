@@ -46,10 +46,10 @@ const freqLookup = [
   [5707, 0, 0, 0, 0, 0, 0, 0],                      // HDZero-E
   [5740, 5760, 0, 5800, 0, 0, 0, 0],                // HDZero-F
   [5732, 5769, 5806, 5843, 0, 0, 0, 0],             // HDZero-CE
-  [5658, 5659, 5732, 5769, 5806, 5843, 5880, 5917], // WLKSnail-R
-  [5660, 5695, 5735, 5770, 5805, 5878, 5914, 5839], // WLKSnail-25
-  [5735, 5770, 5805, 0, 0, 0, 0, 5839],             // WLKSnail-25CE
-  [5695, 5770, 5878, 0, 0, 0, 0, 5839],             // WLKSnail-50
+  [5658, 5659, 5732, 5769, 5806, 5843, 5880, 5917], // WalkSnail-R
+  [5660, 5695, 5735, 5770, 5805, 5878, 5914, 5839], // WalkSnail-25
+  [5735, 5770, 5805, 0, 0, 0, 0, 5839],             // WalkSnail-25CE
+  [5695, 5770, 5878, 0, 0, 0, 0, 5839],             // WalkSnail-50
 ];
 
 const bandNames = ['A', 
@@ -70,10 +70,10 @@ const bandNames = ['A',
                    'HDZero-E', 
                    'HDZero-F', 
                    'HDZero-CE',
-                   'WLKSnail-R',
-                   'WLKSnail-25',
-                   'WLKSnail-25CE',
-                   'WLKSnail-50'];
+                   'WalkSnail-R',
+                   'WalkSnail-25',
+                   'WalkSnail-25CE',
+                   'WalkSnail-50'];
 
 // Initialize on load
 window.addEventListener('load', () => {
@@ -109,7 +109,7 @@ function loadConfig() {
     })
     .catch(error => {
       console.error('Failed to load config:', error);
-      pilotCallsignElem.textContent = 'Connection Error';
+      pilotCallsignElem.textContent = i18n.t('osd.connection_error');
     });
 }
 
@@ -208,13 +208,13 @@ function startCurrentLapTimer() {
 
 function updateCurrentLapDisplay() {
   if (!raceRunning || !currentLapStartTime) {
-    currentLapTime.textContent = '00.00s';
+    currentLapTime.textContent = '00.00' + i18n.t('race.seconds_short');
     return;
   }
-  
+
   const elapsed = Date.now() - currentLapStartTime;
   const seconds = (elapsed / 1000).toFixed(2);
-  currentLapTime.textContent = `${seconds}s`;
+  currentLapTime.textContent = seconds + i18n.t('race.seconds_short');
 }
 
 // Handle race start from backend
@@ -268,16 +268,16 @@ function addLap(lapTimeSec) {
 // Update lap counter
 function updateLapCounter() {
   if (maxLaps === 0) {
-    lapCounter.textContent = `Lap ${Math.max(0, lapNo)}`;
+    lapCounter.textContent = i18n.t('osd.lap', { n: Math.max(0, lapNo) });
   } else {
-    lapCounter.textContent = `Lap ${Math.max(0, lapNo)} / ${maxLaps}`;
+    lapCounter.textContent = i18n.t('osd.lap_of', { n: Math.max(0, lapNo), total: maxLaps });
   }
 }
 
 // Update last lap
 function updateLastLap(lapTime) {
-  lastLapTime.textContent = `${lapTime}s`;
   
+  lastLapTime.textContent = lapTime + i18n.t('race.seconds_short');
   // Highlight if it's the fastest
   const fastest = lapTimes.length > 0 ? Math.min(...lapTimes) : null;
   if (fastest && lapTime === fastest) {
@@ -298,8 +298,8 @@ function updateStats() {
   
   // Fastest Lap
   const fastest = Math.min(...lapTimes);
-  fastestLap.textContent = `${fastest.toFixed(2)}s`;
   
+  fastestLap.textContent = fastest.toFixed(2) + i18n.t('race.seconds_short');
   // Fastest 3 Consecutive
   if (lapTimes.length >= 3) {
     let fastestConsecTime = Infinity;
@@ -311,7 +311,7 @@ function updateStats() {
       }
     }
     
-    fastest3Consec.textContent = `${fastestConsecTime.toFixed(2)}s`;
+    fastest3Consec.textContent = fastestConsecTime.toFixed(2) + i18n.t('race.seconds_short');
   } else {
     fastest3Consec.textContent = '--';
   }
@@ -322,7 +322,7 @@ function updateStats() {
   const median = sorted.length % 2 === 0 
     ? (sorted[mid - 1] + sorted[mid]) / 2 
     : sorted[mid];
-  medianLap.textContent = `${median.toFixed(2)}s`;
+  medianLap.textContent = median.toFixed(2) + i18n.t('race.seconds_short');
 }
 
 // Clear stats display
@@ -357,17 +357,17 @@ function updateLapsTable() {
     
     // Lap number
     const lapNumCell = row.insertCell(0);
-    lapNumCell.textContent = actualIndex === 0 ? 'G1' : `L${actualIndex}`;
     
+    lapNumCell.textContent = actualIndex === 0 ? i18n.t('osd.gate1_short') : `${i18n.t('osd.lap_prefix')}${actualIndex}`;
     // Lap time
     const lapTimeCell = row.insertCell(1);
-    lapTimeCell.textContent = `${lapTime.toFixed(2)}s`;
     
+    lapTimeCell.textContent = lapTime.toFixed(2) + i18n.t('race.seconds_short');
     // Gap to fastest
     const gapCell = row.insertCell(2);
     if (fastest && lapTime !== fastest) {
       const gap = (lapTime - fastest).toFixed(2);
-      gapCell.textContent = `+${gap}s`;
+      gapCell.textContent = `+${gap}` + i18n.t('race.seconds_short');
     } else {
       gapCell.textContent = '--';
     }

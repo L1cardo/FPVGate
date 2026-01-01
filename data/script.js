@@ -1,6 +1,6 @@
 // Transport manager for WiFi/USB connectivity
 let transportManager = null;
-let currentConnectionMode = 'auto'; // 'auto', 'wifi', 'usb'
+let currentConnectionMode = "auto"; // 'auto', 'wifi', 'usb'
 let usbConnected = false;
 let eventSource = null;
 let eventSourceReconnectTimer = null;
@@ -67,19 +67,19 @@ var maxLaps = 0;
 
 // Track data for current race
 var currentTrackId = 0;
-var currentTrackName = '';
+var currentTrackName = "";
 var currentTotalDistance = 0;
 var currentDistanceRemaining = 0;
 var distancePollingInterval = null;
 
 // Per-lap distance tracking
-var currentLapDistance = 0.0;       // Distance travelled in current lap (meters)
-var currentLapStartTime = 0;        // When current lap started (ms)
-var lastCompletedLapTime = 0;       // Duration of previous lap (ms)
-var trackLapLength = 0.0;           // Length of one lap (meters)
+var currentLapDistance = 0.0; // Distance travelled in current lap (meters)
+var currentLapStartTime = 0; // When current lap started (ms)
+var lastCompletedLapTime = 0; // Duration of previous lap (ms)
+var trackLapLength = 0.0; // Length of one lap (meters)
 
 var timerInterval;
-var lapTimerStartMs = 0;            // Start time for current lap timer
+var lapTimerStartMs = 0; // Start time for current lap timer
 const timer = document.getElementById("timer");
 const lapCounter = document.getElementById("lapCounter");
 const startRaceButton = document.getElementById("startRaceButton");
@@ -98,10 +98,26 @@ var rssiCrossingSeries = new TimeSeries();
 var maxRssiValue = enterRssi + 10;
 var minRssiValue = exitRssi - 10;
 
+// Add localized validation message for IP pattern
+document.addEventListener("DOMContentLoaded", () => {
+  const webhookIP = document.getElementById("webhookIP");
+  if (webhookIP) {
+    const updateValidity = () => {
+      if (webhookIP.validity.patternMismatch) {
+        webhookIP.setCustomValidity(i18n.t("messages.invalid_ip"));
+      } else {
+        webhookIP.setCustomValidity("");
+      }
+    };
+    webhookIP.addEventListener("input", updateValidity);
+    webhookIP.addEventListener("invalid", updateValidity);
+  }
+});
+
 var audioEnabled = false;
 var speakObjsQueue = [];
-var lapFormat = 'full'; // 'full', 'laptime', 'timeonly'
-var selectedVoice = 'default';
+var lapFormat = "full"; // 'full', 'laptime', 'timeonly'
+var selectedVoice = "default";
 
 // Initialize hybrid audio announcer
 const audioAnnouncer = new AudioAnnouncer();
@@ -109,74 +125,72 @@ const audioAnnouncer = new AudioAnnouncer();
 // Transport initialization functions
 async function initializeTransport() {
   // Check if we have USB transport available (Electron or Web Serial API)
-  const hasUSB = (typeof window.electronAPI !== 'undefined') || ('serial' in navigator);
-  console.log('[Init] USB available:', hasUSB, 'Mode:', currentConnectionMode);
-  console.log('[Init] electronAPI:', typeof window.electronAPI);
-  
-  if (!hasUSB || currentConnectionMode === 'wifi') {
+  const hasUSB = typeof window.electronAPI !== "undefined" || "serial" in navigator;
+  console.log("[Init] USB available:", hasUSB, "Mode:", currentConnectionMode);
+  console.log("[Init] electronAPI:", typeof window.electronAPI);
+
+  if (!hasUSB || currentConnectionMode === "wifi") {
     // WiFi-only mode
-    console.log('[Init] Initializing WiFi-only mode');
+    console.log("[Init] Initializing WiFi-only mode");
     setupWiFiEvents();
-    updateConnectionStatus('WiFi', true);
+    updateConnectionStatus("WiFi", true);
     return;
   }
-  
+
   // Try USB first in auto/usb mode
-  if (currentConnectionMode === 'auto' || currentConnectionMode === 'usb') {
+  if (currentConnectionMode === "auto" || currentConnectionMode === "usb") {
     try {
-      console.log('[Init] Creating USBTransport...');
+      console.log("[Init] Creating USBTransport...");
       transportManager = new USBTransport();
-      
+
       // List available ports and auto-connect in auto mode
-      console.log('[Init] Listing ports...');
+      console.log("[Init] Listing ports...");
       const ports = await transportManager.listPorts();
-      console.log('[Init] Found ports:', ports);
-      
+      console.log("[Init] Found ports:", ports);
+
       if (ports.length > 0) {
         // Populate COM port dropdown
-        const comPortSelect = document.getElementById('comPort');
-        comPortSelect.innerHTML = '<option value="">Select a port...</option>';
-        ports.forEach(port => {
-          console.log('[Init] Adding port:', port.path, port.manufacturer);
-          const option = document.createElement('option');
+        const comPortSelect = document.getElementById("comPort");
+        comPortSelect.innerHTML = `<option value="">${i18n.t("settings.wifi.port_option")}</option>`;
+        ports.forEach((port) => {
+          console.log("[Init] Adding port:", port.path, port.manufacturer);
+          const option = document.createElement("option");
           option.value = port.path;
-          option.textContent = `${port.path}${port.manufacturer ? ' - ' + port.manufacturer : ''}`;
+          option.textContent = `${port.path}${port.manufacturer ? " - " + port.manufacturer : ""}`;
           comPortSelect.appendChild(option);
         });
-        
+
         // Auto-connect to first FPVGate device in auto mode
-        if (currentConnectionMode === 'auto') {
+        if (currentConnectionMode === "auto") {
           // Try to find by manufacturer first
-          let fpvgatePort = ports.find(p => 
-            p.manufacturer && (p.manufacturer.includes('Espressif') || p.manufacturer.includes('Silicon Labs'))
-          );
-          
+          let fpvgatePort = ports.find((p) => p.manufacturer && (p.manufacturer.includes("Espressif") || p.manufacturer.includes("Silicon Labs")));
+
           // If not found, look for COM12 specifically (common FPVGate port on Windows)
           if (!fpvgatePort) {
-            fpvgatePort = ports.find(p => p.path === 'COM12');
+            fpvgatePort = ports.find((p) => p.path === "COM12");
           }
-          
-          console.log('[Init] FPVGate port found:', fpvgatePort);
+
+          console.log("[Init] FPVGate port found:", fpvgatePort);
           if (fpvgatePort) {
             await connectUSB(fpvgatePort.path);
             return;
           }
         }
       } else {
-        console.log('[Init] No ports found');
+        console.log("[Init] No ports found");
       }
     } catch (err) {
-      console.error('[Init] USB initialization failed:', err);
+      console.error("[Init] USB initialization failed:", err);
     }
   }
-  
+
   // Fall back to WiFi if USB failed and in auto mode
-  if (currentConnectionMode === 'auto' && !usbConnected) {
-    console.log('USB not available, falling back to WiFi');
+  if (currentConnectionMode === "auto" && !usbConnected) {
+    console.log("USB not available, falling back to WiFi");
     setupWiFiEvents();
-    updateConnectionStatus('WiFi', true);
-  } else if (currentConnectionMode === 'usb' && !usbConnected) {
-    updateConnectionStatus('USB', false);
+    updateConnectionStatus("WiFi", true);
+  } else if (currentConnectionMode === "usb" && !usbConnected) {
+    updateConnectionStatus("USB", false);
   }
 }
 
@@ -185,17 +199,17 @@ async function connectUSB(portPath) {
     await transportManager.connect(portPath);
     usbConnected = true;
     setupUSBEvents();
-    updateConnectionStatus('USB', true);
-    
+    updateConnectionStatus("USB", true);
+
     // Update COM port dropdown to show selected port
-    const comPortSelect = document.getElementById('comPort');
+    const comPortSelect = document.getElementById("comPort");
     comPortSelect.value = portPath;
-    
-    console.log('Connected to USB:', portPath);
+
+    console.log("Connected to USB:", portPath);
   } catch (err) {
-    console.error('Failed to connect USB:', err);
+    console.error("Failed to connect USB:", err);
     usbConnected = false;
-    updateConnectionStatus('USB', false);
+    updateConnectionStatus("USB", false);
     throw err;
   }
 }
@@ -206,168 +220,183 @@ function setupWiFiEvents() {
     clearTimeout(eventSourceReconnectTimer);
     eventSourceReconnectTimer = null;
   }
-  
+
   if (eventSource) {
     eventSource.close();
   }
-  
+
   if (window.EventSource) {
     eventSource = new EventSource("/events");
-    
-    eventSource.addEventListener("open", function (e) {
-      console.log("WiFi Events Connected");
-      eventSourceReconnectAttempts = 0; // Reset counter on successful connect
-      updateConnectionStatus('WiFi', true);
-      
-      // Update connection info every 5 seconds
-      if (connectionStatusUpdateInterval) {
-        clearInterval(connectionStatusUpdateInterval);
-      }
-      connectionStatusUpdateInterval = setInterval(() => {
-        updateConnectionStatus('WiFi', true);
-      }, 5000);
-    }, false);
-    
-    eventSource.addEventListener("error", function (e) {
-      if (e.target.readyState != EventSource.OPEN) {
-        console.log("WiFi Events Disconnected - attempting reconnect...");
-        updateConnectionStatus('WiFi', false);
-        
-        // Attempt to reconnect
-        if (eventSourceReconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-          eventSourceReconnectAttempts++;
-          console.log(`Reconnect attempt ${eventSourceReconnectAttempts}/${MAX_RECONNECT_ATTEMPTS} in ${RECONNECT_DELAY_MS}ms...`);
-          
-          eventSourceReconnectTimer = setTimeout(() => {
-            console.log('Attempting EventSource reconnect...');
-            setupWiFiEvents();
-          }, RECONNECT_DELAY_MS);
-        } else {
-          console.error('Max reconnect attempts reached. Please refresh the page.');
+
+    eventSource.addEventListener(
+      "open",
+      function (e) {
+        console.log("WiFi Events Connected");
+        eventSourceReconnectAttempts = 0; // Reset counter on successful connect
+        updateConnectionStatus("WiFi", true);
+
+        // Update connection info every 5 seconds
+        if (connectionStatusUpdateInterval) {
+          clearInterval(connectionStatusUpdateInterval);
         }
-      }
-    }, false);
-    
-    eventSource.addEventListener("rssi", function (e) {
-      rssiBuffer.push(e.data);
-      if (rssiBuffer.length > 10) {
-        rssiBuffer.shift();
-      }
-      console.log("rssi", e.data, "buffer size", rssiBuffer.length);
-    }, false);
-    
-    eventSource.addEventListener("lap", function (e) {
-      var lap = (parseFloat(e.data) / 1000).toFixed(2);
-      addLap(lap);
-      console.log("lap raw:", e.data, " formatted:", lap);
-    }, false);
+        connectionStatusUpdateInterval = setInterval(() => {
+          updateConnectionStatus("WiFi", true);
+        }, 5000);
+      },
+      false
+    );
+
+    eventSource.addEventListener(
+      "error",
+      function (e) {
+        if (e.target.readyState != EventSource.OPEN) {
+          console.log("WiFi Events Disconnected - attempting reconnect...");
+          updateConnectionStatus("WiFi", false);
+
+          // Attempt to reconnect
+          if (eventSourceReconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+            eventSourceReconnectAttempts++;
+            console.log(`Reconnect attempt ${eventSourceReconnectAttempts}/${MAX_RECONNECT_ATTEMPTS} in ${RECONNECT_DELAY_MS}ms...`);
+
+            eventSourceReconnectTimer = setTimeout(() => {
+              console.log("Attempting EventSource reconnect...");
+              setupWiFiEvents();
+            }, RECONNECT_DELAY_MS);
+          } else {
+            console.error("Max reconnect attempts reached. Please refresh the page.");
+          }
+        }
+      },
+      false
+    );
+
+    eventSource.addEventListener(
+      "rssi",
+      function (e) {
+        rssiBuffer.push(e.data);
+        if (rssiBuffer.length > 10) {
+          rssiBuffer.shift();
+        }
+        console.log("rssi", e.data, "buffer size", rssiBuffer.length);
+      },
+      false
+    );
+
+    eventSource.addEventListener(
+      "lap",
+      function (e) {
+        var lap = (parseFloat(e.data) / 1000).toFixed(2);
+        addLap(lap);
+        console.log("lap raw:", e.data, " formatted:", lap);
+      },
+      false
+    );
   }
 }
 
 function setupUSBEvents() {
   if (!transportManager) return;
-  
-  transportManager.on('rssi', (data) => {
+
+  transportManager.on("rssi", (data) => {
     rssiBuffer.push(data);
     if (rssiBuffer.length > 10) {
       rssiBuffer.shift();
     }
     console.log("USB rssi", data, "buffer size", rssiBuffer.length);
   });
-  
-  transportManager.on('lap', (data) => {
+
+  transportManager.on("lap", (data) => {
     var lap = (parseFloat(data) / 1000).toFixed(2);
     addLap(lap);
     console.log("USB lap raw:", data, " formatted:", lap);
   });
-  
-  transportManager.on('disconnect', () => {
-    console.log('USB disconnected');
+
+  transportManager.on("disconnect", () => {
+    console.log("USB disconnected");
     usbConnected = false;
-    updateConnectionStatus('USB', false);
-    
+    updateConnectionStatus("USB", false);
+
     // Auto-fallback to WiFi if in auto mode
-    if (currentConnectionMode === 'auto') {
+    if (currentConnectionMode === "auto") {
       setupWiFiEvents();
-      updateConnectionStatus('WiFi', true);
+      updateConnectionStatus("WiFi", true);
     }
   });
 }
 
 async function updateConnectionStatus(mode, connected) {
   // Update header indicator
-  const indicator = document.getElementById('connectionIndicator');
+  const indicator = document.getElementById("connectionIndicator");
   if (indicator) {
-    const dot = indicator.querySelector('.status-dot');
-    const modeEl = indicator.querySelector('.connection-mode');
-    const detailsEl = document.getElementById('connectionDetails');
-    
+    const dot = indicator.querySelector(".status-dot");
+    const modeEl = indicator.querySelector(".connection-mode");
+    const detailsEl = document.getElementById("connectionDetails");
+
     // Update connection state
     if (connected) {
-      dot.classList.add('connected');
+      dot.classList.add("connected");
     } else {
-      dot.classList.remove('connected');
+      dot.classList.remove("connected");
     }
-    
+
     // Update mode text
     if (modeEl) {
-      modeEl.textContent = `${mode}: ${connected ? 'Connected' : 'Disconnected'}`;
+      modeEl.textContent = connected ? i18n.t("race.connected", { mode: mode }) : i18n.t("race.disconnected");
     }
-    
+
     // Build detailed info for slide-out panel
-    let details = '';
-    
-    if (mode === 'WiFi' && connected) {
+    let details = "";
+
+    if (mode === "WiFi" && connected) {
       try {
-        const response = await fetch('/api/wifi');
+        const response = await fetch("/api/wifi");
         if (response.ok) {
           const wifiData = await response.json();
-          if (wifiData.mode === 'AP') {
-            details = `SSID: ${wifiData.ssid}<br>IP: ${wifiData.ip}<br>Connected Clients: ${wifiData.clients}`;
-          } else if (wifiData.mode === 'STA') {
-            const signalQuality = wifiData.rssi > -50 ? 'Excellent' : 
-                                 wifiData.rssi > -60 ? 'Good' : 
-                                 wifiData.rssi > -70 ? 'Fair' : 'Weak';
-            details = `SSID: ${wifiData.ssid}<br>IP: ${wifiData.ip}<br>Signal: ${signalQuality} (${wifiData.rssi} dBm)`;
+          if (wifiData.mode === "AP") {
+            details = i18n.t("race.wifi_ap_details", { ssid: wifiData.ssid, ip: wifiData.ip, clients: wifiData.clients });
+          } else if (wifiData.mode === "STA") {
+            const signalQuality = wifiData.rssi > -50 ? i18n.t("messages.wifi_excellent") : wifiData.rssi > -60 ? i18n.t("messages.wifi_good") : wifiData.rssi > -70 ? i18n.t("messages.wifi_fair") : i18n.t("messages.wifi_weak");
+            details = i18n.t("race.wifi_sta_details", { ssid: wifiData.ssid, ip: wifiData.ip, quality: signalQuality, rssi: wifiData.rssi });
           }
         }
       } catch (err) {
-        console.error('Failed to fetch WiFi info:', err);
-        details = 'Unable to fetch WiFi details';
+        console.error("Failed to fetch WiFi info:", err);
+        details = i18n.t("messages.wifi_error");
       }
-    } else if (mode === 'USB' && connected) {
-      details = 'Direct serial connection<br>Zero latency';
+    } else if (mode === "USB" && connected) {
+      details = i18n.t("race.usb_details");
     } else if (!connected) {
-      details = 'Connection lost';
+      details = i18n.t("race.connection_lost");
     }
-    
+
     if (detailsEl) {
       detailsEl.innerHTML = details;
     }
   }
-  
+
   // Update settings panel status (USB only)
-  const statusEl = document.getElementById('comPortStatus');
+  const statusEl = document.getElementById("comPortStatus");
   if (statusEl) {
-    statusEl.style.display = 'block';
-    statusEl.textContent = `Status: ${connected ? 'Connected' : 'Disconnected'} (${mode})`;
-    statusEl.style.color = connected ? 'var(--success-color, #4CAF50)' : 'var(--error-color, #f44336)';
+    statusEl.style.display = "block";
+    const statusText = connected ? i18n.t("race.status_connected") : i18n.t("race.status_disconnected");
+    statusEl.textContent = i18n.t("race.status_label", { status: statusText, mode: mode });
+    statusEl.style.color = connected ? "var(--success-color, #4CAF50)" : "var(--error-color, #f44336)";
   }
 }
 
 async function changeConnectionMode() {
-  const modeSelect = document.getElementById('connectionMode');
+  const modeSelect = document.getElementById("connectionMode");
   currentConnectionMode = modeSelect.value;
-  
-  const comPortSection = document.getElementById('comPortSection');
-  
+
+  const comPortSection = document.getElementById("comPortSection");
+
   // Show COM port selector in USB mode
-  if (currentConnectionMode === 'usb') {
-    comPortSection.style.display = 'flex';
+  if (currentConnectionMode === "usb") {
+    comPortSection.style.display = "flex";
   } else {
-    comPortSection.style.display = 'none';
+    comPortSection.style.display = "none";
   }
-  
+
   // Disconnect current connection
   if (eventSource) {
     eventSource.close();
@@ -377,200 +406,200 @@ async function changeConnectionMode() {
     await transportManager.disconnect();
     usbConnected = false;
   }
-  
+
   // Reinitialize with new mode
   await initializeTransport();
 }
 
 async function selectComPort() {
-  const comPortSelect = document.getElementById('comPort');
+  const comPortSelect = document.getElementById("comPort");
   const portPath = comPortSelect.value;
-  
+
   if (!portPath) return;
-  
+
   // Disconnect if already connected
   if (transportManager && usbConnected) {
     await transportManager.disconnect();
     usbConnected = false;
   }
-  
+
   // Connect to selected port
   if (!transportManager) {
     transportManager = new USBTransport();
   }
-  
+
   await connectUSB(portPath);
 }
 
 onload = async function (e) {
   // Load dark mode preference
   loadDarkMode();
-  
+
   config.style.display = "none";
   race.style.display = "block";
   calib.style.display = "none";
-  
+
   // Initialize transport (USB/WiFi)
   await initializeTransport();
-  
+
   // Fetch config using appropriate transport
   let configData;
   try {
     if (usbConnected && transportManager) {
-      configData = await transportManager.sendCommand('config', 'GET');
+      configData = await transportManager.sendCommand("config", "GET");
     } else {
       const response = await fetch("/config");
       configData = await response.json();
     }
     console.log(configData);
   } catch (err) {
-    console.error('[Script] Failed to fetch config:', err);
+    console.error("[Script] Failed to fetch config:", err);
     // Set defaults if config fetch fails
     configData = {};
   }
   {
-      if (configData.freq !== undefined) setBandChannelIndex(configData.freq);
-      if (configData.minLap !== undefined) {
-        minLapInput.value = (parseFloat(configData.minLap) / 10).toFixed(1);
-        updateMinLap(minLapInput, minLapInput.value);
+    if (configData.freq !== undefined) setBandChannelIndex(configData.freq);
+    if (configData.minLap !== undefined) {
+      minLapInput.value = (parseFloat(configData.minLap) / 10).toFixed(1);
+      updateMinLap(minLapInput, minLapInput.value);
+    }
+    if (configData.alarm !== undefined) {
+      alarmThreshold.value = (parseFloat(configData.alarm) / 10).toFixed(1);
+      updateAlarmThreshold(alarmThreshold, alarmThreshold.value);
+    }
+    if (configData.anType !== undefined) announcerSelect.selectedIndex = configData.anType;
+    if (configData.anRate !== undefined) {
+      announcerRateInput.value = (parseFloat(configData.anRate) / 10).toFixed(1);
+      updateAnnouncerRate(announcerRateInput, announcerRateInput.value);
+    }
+    if (configData.enterRssi !== undefined) {
+      enterRssiInput.value = configData.enterRssi;
+      updateEnterRssi(enterRssiInput, enterRssiInput.value);
+    }
+    if (configData.exitRssi !== undefined) {
+      exitRssiInput.value = configData.exitRssi;
+      updateExitRssi(exitRssiInput, exitRssiInput.value);
+    }
+    if (configData.name !== undefined) pilotNameInput.value = configData.name;
+    if (configData.ssid !== undefined) ssidInput.value = configData.ssid;
+    if (configData.pwd !== undefined) pwdInput.value = configData.pwd;
+    maxLapsInput.value = configData.maxLaps !== undefined ? configData.maxLaps : 0;
+    updateMaxLaps(maxLapsInput, maxLapsInput.value);
+
+    // Load pilot callsign, phonetic name, and color from device config
+    const callsignInput = document.getElementById("pcallsign");
+    const phoneticInput = document.getElementById("pphonetic");
+    const colorInput = document.getElementById("pilotColor");
+    if (callsignInput && configData.pilotCallsign !== undefined) {
+      callsignInput.value = configData.pilotCallsign;
+    }
+    if (phoneticInput && configData.pilotPhonetic !== undefined) {
+      phoneticInput.value = configData.pilotPhonetic;
+    }
+    if (colorInput && configData.pilotColor !== undefined) {
+      const hexColor = "#" + ("000000" + configData.pilotColor.toString(16)).slice(-6).toUpperCase();
+      colorInput.value = hexColor;
+      updateColorPreview();
+    }
+    populateFreqOutput();
+    stopRaceButton.disabled = true;
+    startRaceButton.disabled = false;
+    addLapButton.disabled = true;
+    clearInterval(timerInterval);
+    timer.innerHTML = i18n.t("race.timer_default");
+    clearLaps();
+    createRssiChart();
+    // Auto-enable voice on load
+    enableAudioLoop();
+    // Setup pilot color preview
+    const colorSelect = document.getElementById("pilotColor");
+    if (colorSelect) {
+      colorSelect.addEventListener("change", updateColorPreview);
+      updateColorPreview();
+    }
+
+    // Load lap format and voice selection from device config
+    lapFormat = configData.lapFormat || "full";
+    selectedVoice = configData.selectedVoice || "default";
+    const lapFormatSelect = document.getElementById("lapFormatSelect");
+    const voiceSelect = document.getElementById("voiceSelect");
+    if (lapFormatSelect) lapFormatSelect.value = lapFormat;
+    if (voiceSelect) voiceSelect.value = selectedVoice;
+
+    // Load and apply theme from device config
+    if (configData.theme) {
+      const savedTheme = configData.theme;
+      document.documentElement.setAttribute("data-theme", savedTheme);
+      const themeSelect = document.getElementById("themeSelect");
+      if (themeSelect) themeSelect.value = savedTheme;
+    }
+
+    // Load LED settings from config (if available)
+    const ledPresetSelect = document.getElementById("ledPreset");
+    const ledBrightnessInput = document.getElementById("ledBrightness");
+    const ledColorInput = document.getElementById("ledColor");
+    const ledManualOverrideToggle = document.getElementById("ledManualOverride");
+    const customColorSection = document.getElementById("customColorSection");
+
+    // Load ledPreset from backend config
+    if (configData.ledPreset !== undefined && ledPresetSelect) {
+      ledPresetSelect.value = configData.ledPreset;
+    }
+
+    if (configData.ledBrightness !== undefined && ledBrightnessInput) {
+      ledBrightnessInput.value = configData.ledBrightness;
+      updateLedBrightness(ledBrightnessInput, configData.ledBrightness);
+    }
+
+    if (configData.ledColor !== undefined && ledColorInput) {
+      // Convert color integer to hex string
+      const hexColor = "#" + ("000000" + configData.ledColor.toString(16)).slice(-6).toUpperCase();
+      ledColorInput.value = hexColor;
+    }
+
+    // Initialize LED preset UI on page load (UI only, no command sent)
+    if (ledPresetSelect) {
+      updateLedPresetUI();
+    }
+
+    // Load Gate LED settings from config
+    const gateLEDsEnabledToggle = document.getElementById("gateLEDsEnabled");
+    const webhookRaceStartToggle = document.getElementById("webhookRaceStart");
+    const webhookRaceStopToggle = document.getElementById("webhookRaceStop");
+    const webhookLapToggle = document.getElementById("webhookLap");
+    const gateLEDOptions = document.getElementById("gateLEDOptions");
+
+    if (gateLEDsEnabledToggle && configData.gateLEDsEnabled !== undefined) {
+      gateLEDsEnabledToggle.checked = configData.gateLEDsEnabled === 1;
+      if (gateLEDOptions) {
+        gateLEDOptions.style.display = configData.gateLEDsEnabled === 1 ? "block" : "none";
       }
-      if (configData.alarm !== undefined) {
-        alarmThreshold.value = (parseFloat(configData.alarm) / 10).toFixed(1);
-        updateAlarmThreshold(alarmThreshold, alarmThreshold.value);
-      }
-      if (configData.anType !== undefined) announcerSelect.selectedIndex = configData.anType;
-      if (configData.anRate !== undefined) {
-        announcerRateInput.value = (parseFloat(configData.anRate) / 10).toFixed(1);
-        updateAnnouncerRate(announcerRateInput, announcerRateInput.value);
-      }
-      if (configData.enterRssi !== undefined) {
-        enterRssiInput.value = configData.enterRssi;
-        updateEnterRssi(enterRssiInput, enterRssiInput.value);
-      }
-      if (configData.exitRssi !== undefined) {
-        exitRssiInput.value = configData.exitRssi;
-        updateExitRssi(exitRssiInput, exitRssiInput.value);
-      }
-      if (configData.name !== undefined) pilotNameInput.value = configData.name;
-      if (configData.ssid !== undefined) ssidInput.value = configData.ssid;
-      if (configData.pwd !== undefined) pwdInput.value = configData.pwd;
-      maxLapsInput.value = (configData.maxLaps !== undefined) ? configData.maxLaps : 0;
-      updateMaxLaps(maxLapsInput, maxLapsInput.value);
-      
-      // Load pilot callsign, phonetic name, and color from device config
-      const callsignInput = document.getElementById('pcallsign');
-      const phoneticInput = document.getElementById('pphonetic');
-      const colorInput = document.getElementById('pilotColor');
-      if (callsignInput && configData.pilotCallsign !== undefined) {
-        callsignInput.value = configData.pilotCallsign;
-      }
-      if (phoneticInput && configData.pilotPhonetic !== undefined) {
-        phoneticInput.value = configData.pilotPhonetic;
-      }
-      if (colorInput && configData.pilotColor !== undefined) {
-        const hexColor = '#' + ('000000' + configData.pilotColor.toString(16)).slice(-6).toUpperCase();
-        colorInput.value = hexColor;
-        updateColorPreview();
-      }
-      populateFreqOutput();
-      stopRaceButton.disabled = true;
-      startRaceButton.disabled = false;
-      addLapButton.disabled = true;
-      clearInterval(timerInterval);
-      timer.innerHTML = "00:00:00s";
-      clearLaps();
-      createRssiChart();
-      // Auto-enable voice on load
-      enableAudioLoop();
-      // Setup pilot color preview
-      const colorSelect = document.getElementById('pilotColor');
-      if (colorSelect) {
-        colorSelect.addEventListener('change', updateColorPreview);
-        updateColorPreview();
-      }
-      
-      // Load lap format and voice selection from device config
-      lapFormat = configData.lapFormat || 'full';
-      selectedVoice = configData.selectedVoice || 'default';
-      const lapFormatSelect = document.getElementById('lapFormatSelect');
-      const voiceSelect = document.getElementById('voiceSelect');
-      if (lapFormatSelect) lapFormatSelect.value = lapFormat;
-      if (voiceSelect) voiceSelect.value = selectedVoice;
-      
-      // Load and apply theme from device config
-      if (configData.theme) {
-        const savedTheme = configData.theme;
-        document.documentElement.setAttribute('data-theme', savedTheme);
-        const themeSelect = document.getElementById('themeSelect');
-        if (themeSelect) themeSelect.value = savedTheme;
-      }
-      
-      // Load LED settings from config (if available)
-      const ledPresetSelect = document.getElementById('ledPreset');
-      const ledBrightnessInput = document.getElementById('ledBrightness');
-      const ledColorInput = document.getElementById('ledColor');
-      const ledManualOverrideToggle = document.getElementById('ledManualOverride');
-      const customColorSection = document.getElementById('customColorSection');
-      
-      // Load ledPreset from backend config
-      if (configData.ledPreset !== undefined && ledPresetSelect) {
-        ledPresetSelect.value = configData.ledPreset;
-      }
-      
-      if (configData.ledBrightness !== undefined && ledBrightnessInput) {
-        ledBrightnessInput.value = configData.ledBrightness;
-        updateLedBrightness(ledBrightnessInput, configData.ledBrightness);
-      }
-      
-      if (configData.ledColor !== undefined && ledColorInput) {
-        // Convert color integer to hex string
-        const hexColor = '#' + ('000000' + configData.ledColor.toString(16)).slice(-6).toUpperCase();
-        ledColorInput.value = hexColor;
-      }
-      
-      // Initialize LED preset UI on page load (UI only, no command sent)
-      if (ledPresetSelect) {
-        updateLedPresetUI();
-      }
-      
-      // Load Gate LED settings from config
-      const gateLEDsEnabledToggle = document.getElementById('gateLEDsEnabled');
-      const webhookRaceStartToggle = document.getElementById('webhookRaceStart');
-      const webhookRaceStopToggle = document.getElementById('webhookRaceStop');
-      const webhookLapToggle = document.getElementById('webhookLap');
-      const gateLEDOptions = document.getElementById('gateLEDOptions');
-      
-      if (gateLEDsEnabledToggle && configData.gateLEDsEnabled !== undefined) {
-        gateLEDsEnabledToggle.checked = configData.gateLEDsEnabled === 1;
-        if (gateLEDOptions) {
-          gateLEDOptions.style.display = configData.gateLEDsEnabled === 1 ? 'block' : 'none';
-        }
-      }
-      
-      if (webhookRaceStartToggle && configData.webhookRaceStart !== undefined) {
-        webhookRaceStartToggle.checked = configData.webhookRaceStart === 1;
-      }
-      
-      if (webhookRaceStopToggle && configData.webhookRaceStop !== undefined) {
-        webhookRaceStopToggle.checked = configData.webhookRaceStop === 1;
-      }
-      
-      if (webhookLapToggle && configData.webhookLap !== undefined) {
-        webhookLapToggle.checked = configData.webhookLap === 1;
-      }
-      
-      // Initialize battery monitoring UI on page load (default is disabled)
-      const batterySection = document.getElementById('batteryMonitoringSection');
-      const batteryToggle = document.getElementById('batteryMonitorToggle');
-      if (batterySection && batteryToggle) {
-        batterySection.style.display = batteryToggle.checked ? 'block' : 'none';
-      }
-      
-      // Load RSSI sensitivity setting
-      const rssiSensitivitySelect = document.getElementById('rssiSensitivity');
-      if (rssiSensitivitySelect && configData.rssiSens !== undefined) {
-        rssiSensitivitySelect.value = configData.rssiSens;
-      }
+    }
+
+    if (webhookRaceStartToggle && configData.webhookRaceStart !== undefined) {
+      webhookRaceStartToggle.checked = configData.webhookRaceStart === 1;
+    }
+
+    if (webhookRaceStopToggle && configData.webhookRaceStop !== undefined) {
+      webhookRaceStopToggle.checked = configData.webhookRaceStop === 1;
+    }
+
+    if (webhookLapToggle && configData.webhookLap !== undefined) {
+      webhookLapToggle.checked = configData.webhookLap === 1;
+    }
+
+    // Initialize battery monitoring UI on page load (default is disabled)
+    const batterySection = document.getElementById("batteryMonitoringSection");
+    const batteryToggle = document.getElementById("batteryMonitorToggle");
+    if (batterySection && batteryToggle) {
+      batterySection.style.display = batteryToggle.checked ? "block" : "none";
+    }
+
+    // Load RSSI sensitivity setting
+    const rssiSensitivitySelect = document.getElementById("rssiSensitivity");
+    if (rssiSensitivitySelect && configData.rssiSens !== undefined) {
+      rssiSensitivitySelect.value = configData.rssiSens;
+    }
   }
 };
 
@@ -578,20 +607,20 @@ async function getBatteryVoltage() {
   try {
     let response;
     if (usbConnected && transportManager) {
-      const data = await transportManager.sendCommand('status', 'GET');
+      const data = await transportManager.sendCommand("status", "GET");
       response = JSON.stringify(data);
     } else {
       const resp = await fetch("/status");
       response = await resp.text();
     }
-    
+
     const batteryVoltageMatch = response.match(/Battery Voltage:\s*([\d.]+v)/);
     const batteryVoltage = batteryVoltageMatch ? batteryVoltageMatch[1] : null;
     if (batteryVoltageDisplay) {
       batteryVoltageDisplay.innerText = batteryVoltage;
     }
   } catch (err) {
-    console.error('Failed to get battery voltage:', err);
+    console.error("Failed to get battery voltage:", err);
   }
 }
 
@@ -599,7 +628,7 @@ setInterval(getBatteryVoltage, 2000);
 
 function addRssiPoint() {
   if (!rssiChart) return; // Chart not initialized yet
-  
+
   if (calib.style.display != "none") {
     rssiChart.start();
     if (rssiBuffer.length > 0) {
@@ -691,12 +720,13 @@ function openTab(evt, tabName) {
   // if event comes from calibration tab, signal to start sending RSSI events
   if (tabName === "calib" && !rssiSending) {
     if (usbConnected && transportManager) {
-      transportManager.sendCommand('timer/rssiStart', 'POST')
+      transportManager
+        .sendCommand("timer/rssiStart", "POST")
         .then((response) => {
           rssiSending = true;
           console.log("/timer/rssiStart:", response);
         })
-        .catch(err => console.error('Failed to start RSSI:', err));
+        .catch((err) => console.error("Failed to start RSSI:", err));
     } else {
       fetch("/timer/rssiStart", {
         method: "POST",
@@ -713,12 +743,13 @@ function openTab(evt, tabName) {
     }
   } else if (rssiSending) {
     if (usbConnected && transportManager) {
-      transportManager.sendCommand('timer/rssiStop', 'POST')
+      transportManager
+        .sendCommand("timer/rssiStop", "POST")
         .then((response) => {
           rssiSending = false;
           console.log("/timer/rssiStop:", response);
         })
-        .catch(err => console.error('Failed to stop RSSI:', err));
+        .catch((err) => console.error("Failed to stop RSSI:", err));
     } else {
       fetch("/timer/rssiStop", {
         method: "POST",
@@ -734,9 +765,9 @@ function openTab(evt, tabName) {
         .then((response) => console.log("/timer/rssiStop:" + JSON.stringify(response)));
     }
   }
-  
+
   // Load race history when opening history tab
-  if (tabName === 'history') {
+  if (tabName === "history") {
     loadRaceHistory();
   }
 }
@@ -772,21 +803,21 @@ function autoSaveConfig() {
 
 async function saveConfig() {
   // Get pilot settings
-  const callsignInput = document.getElementById('pcallsign');
-  const phoneticInput = document.getElementById('pphonetic');
-  const colorInput = document.getElementById('pilotColor');
-  const themeSelect = document.getElementById('themeSelect');
-  const voiceSelect = document.getElementById('voiceSelect');
-  const lapFormatSelect = document.getElementById('lapFormatSelect');
-  
+  const callsignInput = document.getElementById("pcallsign");
+  const phoneticInput = document.getElementById("pphonetic");
+  const colorInput = document.getElementById("pilotColor");
+  const themeSelect = document.getElementById("themeSelect");
+  const voiceSelect = document.getElementById("voiceSelect");
+  const lapFormatSelect = document.getElementById("lapFormatSelect");
+
   // Convert hex color to integer
-  let pilotColorInt = 0x0080FF; // default
+  let pilotColorInt = 0x0080ff; // default
   if (colorInput && colorInput.value) {
-    pilotColorInt = parseInt(colorInput.value.replace('#', ''), 16);
+    pilotColorInt = parseInt(colorInput.value.replace("#", ""), 16);
   }
-  
+
   // Save all settings to device
-  const rssiSensitivitySelect = document.getElementById('rssiSensitivity');
+  const rssiSensitivitySelect = document.getElementById("rssiSensitivity");
   const configData = {
     freq: frequency,
     minLap: parseInt(minLapInput.value * 10),
@@ -798,18 +829,18 @@ async function saveConfig() {
     maxLaps: maxLaps,
     rssiSens: rssiSensitivitySelect ? parseInt(rssiSensitivitySelect.value) : 1,
     name: pilotNameInput.value,
-    pilotCallsign: callsignInput ? callsignInput.value : '',
-    pilotPhonetic: phoneticInput ? phoneticInput.value : '',
+    pilotCallsign: callsignInput ? callsignInput.value : "",
+    pilotPhonetic: phoneticInput ? phoneticInput.value : "",
     pilotColor: pilotColorInt,
-    theme: themeSelect ? themeSelect.value : 'oceanic',
-    selectedVoice: voiceSelect ? voiceSelect.value : 'default',
-    lapFormat: lapFormatSelect ? lapFormatSelect.value : 'full',
+    theme: themeSelect ? themeSelect.value : "oceanic",
+    selectedVoice: voiceSelect ? voiceSelect.value : "default",
+    lapFormat: lapFormatSelect ? lapFormatSelect.value : "full",
     ssid: ssidInput.value,
     pwd: pwdInput.value,
   };
-  
+
   if (usbConnected && transportManager) {
-    const response = await transportManager.sendCommand('config', 'POST', configData);
+    const response = await transportManager.sendCommand("config", "POST", configData);
     console.log("/config:", response);
   } else {
     fetch("/config", {
@@ -839,26 +870,26 @@ bcf.addEventListener("change", function handleChange(event) {
 
 // Add auto-save listeners for other inputs
 if (announcerSelect) {
-  announcerSelect.addEventListener('change', autoSaveConfig);
+  announcerSelect.addEventListener("change", autoSaveConfig);
 }
 if (pilotNameInput) {
-  pilotNameInput.addEventListener('input', autoSaveConfig);
+  pilotNameInput.addEventListener("input", autoSaveConfig);
 }
-const callsignInput = document.getElementById('pcallsign');
+const callsignInput = document.getElementById("pcallsign");
 if (callsignInput) {
-  callsignInput.addEventListener('input', autoSaveConfig);
+  callsignInput.addEventListener("input", autoSaveConfig);
 }
-const phoneticInput = document.getElementById('pphonetic');
+const phoneticInput = document.getElementById("pphonetic");
 if (phoneticInput) {
-  phoneticInput.addEventListener('input', autoSaveConfig);
+  phoneticInput.addEventListener("input", autoSaveConfig);
 }
-const colorInput = document.getElementById('pilotColor');
+const colorInput = document.getElementById("pilotColor");
 if (colorInput) {
-  colorInput.addEventListener('change', autoSaveConfig);
+  colorInput.addEventListener("change", autoSaveConfig);
 }
-const batteryToggle = document.getElementById('batteryMonitorToggle');
+const batteryToggle = document.getElementById("batteryMonitorToggle");
 if (batteryToggle) {
-  batteryToggle.addEventListener('change', autoSaveConfig);
+  batteryToggle.addEventListener("change", autoSaveConfig);
 }
 
 function updateAnnouncerRate(obj, value) {
@@ -891,16 +922,13 @@ function updateMaxLaps(obj, value) {
   maxLaps = parseInt(value);
   let displayText;
   if (maxLaps === 0) {
-    displayText = "Infinite";
+    displayText = i18n.t("settings.race_setup.infinite_label");
   } else if (maxLaps === 1) {
-    displayText = "1 lap";
+    displayText = i18n.t("race.table.lap_singular");
   } else {
-    displayText = maxLaps + " laps";
+    displayText = i18n.t("race.table.lap_plural", { n: maxLaps });
   }
-  $(obj)
-    .parent()
-    .find("span")
-    .text(displayText);
+  $(obj).parent().find("span").text(displayText);
   // Auto-save when changed
   autoSaveConfig();
 }
@@ -917,14 +945,17 @@ function beep(duration, frequency, type) {
   if (!beepAudioContext) {
     beepAudioContext = new AudioContext();
   }
-  
+
   // iOS/Safari: ensure AudioContext is running
-  if (beepAudioContext.state === 'suspended') {
-    beepAudioContext.resume().then(() => {
-      playBeepTone(duration, frequency, type);
-    }).catch(err => {
-      console.warn('[Beep] AudioContext resume failed:', err);
-    });
+  if (beepAudioContext.state === "suspended") {
+    beepAudioContext
+      .resume()
+      .then(() => {
+        playBeepTone(duration, frequency, type);
+      })
+      .catch((err) => {
+        console.warn("[Beep] AudioContext resume failed:", err);
+      });
   } else {
     playBeepTone(duration, frequency, type);
   }
@@ -944,50 +975,50 @@ function playBeepTone(duration, frequency, type) {
 
 function addLap(lapStr) {
   // Use phonetic name for TTS if available, otherwise use regular pilot name
-  const phoneticInput = document.getElementById('pphonetic');
-  const pilotName = (phoneticInput && phoneticInput.value) ? phoneticInput.value : pilotNameInput.value;
-  
+  const phoneticInput = document.getElementById("pphonetic");
+  const pilotName = phoneticInput && phoneticInput.value ? phoneticInput.value : pilotNameInput.value;
+
   const newLap = parseFloat(lapStr);
   lapNo += 1;
   lapTimes.push(newLap);
-  
+
   // Track lap timing for distance estimation
   lastCompletedLapTime = newLap * 1000; // Convert to milliseconds
-  currentLapStartTime = Date.now();     // Reset lap start time
-  lapTimerStartMs = Date.now();         // Reset lap timer
-  currentLapDistance = 0.0;             // Reset distance counter
-  
+  currentLapStartTime = Date.now(); // Reset lap start time
+  lapTimerStartMs = Date.now(); // Reset lap timer
+  currentLapDistance = 0.0; // Reset distance counter
+
   // Calculate total time so far
   const totalTime = lapTimes.reduce((sum, time) => sum + time, 0).toFixed(2);
-  
+
   // Calculate gap from previous lap (for regular laps only, not gate 1)
   let gap = "";
   if (lapNo > 1) {
     gap = (newLap - lapTimes[lapTimes.length - 2]).toFixed(2);
     if (gap > 0) gap = "+" + gap;
   }
-  
+
   const table = document.getElementById("lapTable");
   const row = table.insertRow();
-  row.setAttribute('data-lap-index', lapTimes.length - 1);
-  
-  const cell1 = row.insertCell(0);  // Lap No
-  const cell2 = row.insertCell(1);  // Lap Time
-  const cell3 = row.insertCell(2);  // Gap
-  const cell4 = row.insertCell(3);  // Total Time
-  
+  row.setAttribute("data-lap-index", lapTimes.length - 1);
+
+  const cell1 = row.insertCell(0); // Lap No
+  const cell2 = row.insertCell(1); // Lap Time
+  const cell3 = row.insertCell(2); // Gap
+  const cell4 = row.insertCell(3); // Total Time
+
   cell1.innerHTML = lapNo;
-  
+
   if (lapNo == 0) {
-    cell2.innerHTML = "Gate 1: " + lapStr + "s";
+    cell2.innerHTML = i18n.t("race.gate1_table", { s: lapStr });
     cell3.innerHTML = "-";
   } else {
-    cell2.innerHTML = lapStr + "s";
-    cell3.innerHTML = gap ? gap + "s" : "-";
+    cell2.innerHTML = lapStr + i18n.t("race.seconds_short");
+    cell3.innerHTML = gap ? gap + i18n.t("race.seconds_short") : "-";
   }
-  
-  cell4.innerHTML = totalTime + "s";
-  
+
+  cell4.innerHTML = totalTime + i18n.t("race.seconds_short");
+
   // Highlight fastest lap
   highlightFastestLap();
 
@@ -997,21 +1028,21 @@ function addLap(lapStr) {
       break;
     case "1lap":
       if (lapNo == 0) {
-        queueSpeak(`<p>Gate 1 ${lapStr}<p>`);
+        queueSpeak(`<p>${i18n.t("tts.gate1", { n: lapStr })}</p>`);
       } else {
         let text;
         switch (lapFormat) {
-          case 'full':
-            text = `<p>${pilotName} Lap ${lapNo}, ${lapStr}</p>`;
+          case "full":
+            text = `<p>${pilotName} ${i18n.t("race.lap_counter", { n: lapNo })}, ${lapStr}</p>`;
             break;
-          case 'laptime':
-            text = `<p>Lap ${lapNo}, ${lapStr}</p>`;
+          case "laptime":
+            text = `<p>${i18n.t("race.lap_counter", { n: lapNo })}, ${lapStr}</p>`;
             break;
-          case 'timeonly':
+          case "timeonly":
             text = `<p>${lapStr}</p>`;
             break;
           default:
-            text = `<p>${pilotName} Lap ${lapNo}, ${lapStr}</p>`;
+            text = `<p>${pilotName} ${i18n.t("race.lap_counter", { n: lapNo })}, ${lapStr}</p>`;
         }
         queueSpeak(text);
       }
@@ -1035,19 +1066,19 @@ function addLap(lapStr) {
     default:
       break;
   }
-  
+
   // Update lap counter
   updateLapCounter();
-  
+
   // Update lap analysis
   updateAnalysisView();
-  
+
   // Auto-stop race if max laps reached (excluding hole shot, and if maxLaps > 0)
   if (maxLaps > 0 && lapNo > 0 && lapNo >= maxLaps) {
-    setTimeout(function() {
+    setTimeout(function () {
       if (!stopRaceButton.disabled) {
         stopRace();
-        queueSpeak('<p>Race complete</p>');
+        queueSpeak(`<p>${i18n.t("tts.race_complete")}</p>`);
       }
     }, 500); // Small delay to allow lap announcement
   }
@@ -1076,13 +1107,14 @@ function startTimer() {
     let m = minutes < 10 ? "0" + minutes : minutes;
     let s = seconds < 10 ? "0" + seconds : seconds;
     let ms = millis < 10 ? "0" + millis : millis;
-    timer.innerHTML = `${m}:${s}:${ms}s`;
+    timer.innerHTML = `${m}:${s}:${ms}` + i18n.t("race.seconds_short");
   }, 10);
 
   if (usbConnected && transportManager) {
-    transportManager.sendCommand('timer/start', 'POST')
+    transportManager
+      .sendCommand("timer/start", "POST")
       .then((response) => console.log("/timer/start:", response))
-      .catch(err => console.error('Failed to start timer:', err));
+      .catch((err) => console.error("Failed to start timer:", err));
   } else {
     fetch("/timer/start", {
       method: "POST",
@@ -1104,64 +1136,64 @@ function queueSpeak(obj) {
 }
 
 function saveLapFormat() {
-  const lapFormatSelect = document.getElementById('lapFormatSelect');
+  const lapFormatSelect = document.getElementById("lapFormatSelect");
   if (lapFormatSelect) {
     lapFormat = lapFormatSelect.value;
-    console.log('Lap format saved:', lapFormat);
+    console.log("Lap format saved:", lapFormat);
     autoSaveConfig(); // Save to device
   }
 }
 
 function saveVoiceSelection() {
-  const voiceSelect = document.getElementById('voiceSelect');
+  const voiceSelect = document.getElementById("voiceSelect");
   if (voiceSelect) {
     selectedVoice = voiceSelect.value;
-    console.log('Voice selection saved:', selectedVoice);
-    
+    console.log("Voice selection saved:", selectedVoice);
+
     // Update audioAnnouncer voice (this clears cache and updates voice directory)
     if (audioAnnouncer) {
       audioAnnouncer.setVoice(selectedVoice);
     }
-    
+
     // If PiperTTS selected, use piper engine, otherwise use webspeech for fallback
-    if (selectedVoice === 'piper') {
+    if (selectedVoice === "piper") {
       if (audioAnnouncer) {
-        audioAnnouncer.setTtsEngine('piper');
+        audioAnnouncer.setTtsEngine("piper");
       }
     } else {
       // ElevenLabs voices use webspeech for fallback
       if (audioAnnouncer) {
-        audioAnnouncer.setTtsEngine('webspeech');
+        audioAnnouncer.setTtsEngine("webspeech");
       }
     }
-    
+
     autoSaveConfig(); // Save to device
   }
 }
 
 function updateVoiceButtons() {
-  const enableBtn = document.getElementById('EnableAudioButton');
-  const disableBtn = document.getElementById('DisableAudioButton');
-  
+  const enableBtn = document.getElementById("EnableAudioButton");
+  const disableBtn = document.getElementById("DisableAudioButton");
+
   if (audioEnabled) {
-    enableBtn.style.backgroundColor = '#f39c12';
-    enableBtn.style.opacity = '1';
-    disableBtn.style.backgroundColor = '';
-    disableBtn.style.opacity = '0.5';
+    enableBtn.style.backgroundColor = "#f39c12";
+    enableBtn.style.opacity = "1";
+    disableBtn.style.backgroundColor = "";
+    disableBtn.style.opacity = "0.5";
   } else {
-    enableBtn.style.backgroundColor = '';
-    enableBtn.style.opacity = '0.5';
-    disableBtn.style.backgroundColor = '#f39c12';
-    disableBtn.style.opacity = '1';
+    enableBtn.style.backgroundColor = "";
+    enableBtn.style.opacity = "0.5";
+    disableBtn.style.backgroundColor = "#f39c12";
+    disableBtn.style.opacity = "1";
   }
 }
 
 async function enableAudioLoop() {
-  console.log('[Script] Enabling audio...');
+  console.log("[Script] Enabling audio...");
   audioEnabled = true;
   audioAnnouncer.enable();
   updateVoiceButtons();
-  console.log('[Script] Audio enabled, audioEnabled:', audioEnabled);
+  console.log("[Script] Audio enabled, audioEnabled:", audioEnabled);
 }
 
 function disableAudioLoop() {
@@ -1172,8 +1204,8 @@ function disableAudioLoop() {
 
 // Pilot color preview
 function updateColorPreview() {
-  const colorSelect = document.getElementById('pilotColor');
-  const colorPreview = document.getElementById('colorPreview');
+  const colorSelect = document.getElementById("pilotColor");
+  const colorPreview = document.getElementById("colorPreview");
   if (colorSelect && colorPreview) {
     colorPreview.style.backgroundColor = colorSelect.value;
   }
@@ -1181,35 +1213,35 @@ function updateColorPreview() {
 
 // Battery monitoring toggle
 function toggleBatteryMonitor(enabled) {
-  const batterySection = document.getElementById('batteryMonitoringSection');
+  const batterySection = document.getElementById("batteryMonitoringSection");
   if (batterySection) {
-    batterySection.style.display = enabled ? 'block' : 'none';
+    batterySection.style.display = enabled ? "block" : "none";
   }
 }
 
 // Generic fetch wrapper that works with both WiFi and USB
 async function transportFetch(url, options = {}) {
-  const method = options.method || 'GET';
-  const path = url.startsWith('/') ? url.substring(1) : url;
-  
+  const method = options.method || "GET";
+  const path = url.startsWith("/") ? url.substring(1) : url;
+
   if (usbConnected && transportManager) {
     // Parse body if JSON
     let data = null;
     if (options.body) {
-      if (options.headers && options.headers['Content-Type'] === 'application/json') {
+      if (options.headers && options.headers["Content-Type"] === "application/json") {
         data = JSON.parse(options.body);
-      } else if (options.body instanceof URLSearchParams || typeof options.body === 'string') {
+      } else if (options.body instanceof URLSearchParams || typeof options.body === "string") {
         // Parse form data
         const params = new URLSearchParams(options.body);
         data = Object.fromEntries(params.entries());
       }
     }
-    
+
     return transportManager.sendCommand(path, method, data);
   } else {
     // Standard WiFi fetch
     const response = await fetch(url, options);
-    if (options.headers && options.headers['Accept'] === 'application/json') {
+    if (options.headers && options.headers["Accept"] === "application/json") {
       return response.json();
     } else {
       return response.text();
@@ -1220,16 +1252,18 @@ async function transportFetch(url, options = {}) {
 // Helper function for LED commands
 async function sendLedCommand(endpoint, params) {
   if (usbConnected && transportManager) {
-    return transportManager.sendCommand(`led/${endpoint}`, 'POST', params);
+    return transportManager.sendCommand(`led/${endpoint}`, "POST", params);
   } else {
-    const body = Object.entries(params).map(([k, v]) => `${k}=${v}`).join('&');
+    const body = Object.entries(params)
+      .map(([k, v]) => `${k}=${v}`)
+      .join("&");
     const response = await fetch(`/led/${endpoint}`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/x-www-form-urlencoded',
+        Accept: "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: body
+      body: body,
     });
     return response.json();
   }
@@ -1238,179 +1272,178 @@ async function sendLedCommand(endpoint, params) {
 // LED control functions
 // Update LED preset UI only (show/hide color sections, speed settings)
 function updateLedPresetUI() {
-  const presetSelect = document.getElementById('ledPreset');
-  const solidColorSection = document.getElementById('solidColorSection');
-  const fadeColorSection = document.getElementById('fadeColorSection');
-  const strobeColorSection = document.getElementById('strobeColorSection');
-  const speedSection = document.getElementById('ledSpeedSection');
-  const speedNote = document.getElementById('ledSpeedNote');
+  const presetSelect = document.getElementById("ledPreset");
+  const solidColorSection = document.getElementById("solidColorSection");
+  const fadeColorSection = document.getElementById("fadeColorSection");
+  const strobeColorSection = document.getElementById("strobeColorSection");
+  const speedSection = document.getElementById("ledSpeedSection");
+  const speedNote = document.getElementById("ledSpeedNote");
   const preset = parseInt(presetSelect.value);
-  
+
   // Show/hide color pickers based on preset
   if (solidColorSection) {
-    solidColorSection.style.display = (preset === 1) ? 'flex' : 'none';
+    solidColorSection.style.display = preset === 1 ? "flex" : "none";
   }
   if (fadeColorSection) {
-    fadeColorSection.style.display = (preset === 3) ? 'flex' : 'none';
+    fadeColorSection.style.display = preset === 3 ? "flex" : "none";
   }
   if (strobeColorSection) {
-    strobeColorSection.style.display = (preset === 7) ? 'flex' : 'none';
+    strobeColorSection.style.display = preset === 7 ? "flex" : "none";
   }
-  
+
   // Hide animation speed for Solid Colour (preset 1), Off (preset 0), and Pilot Colour (preset 9)
-  const hideSpeed = (preset === 0 || preset === 1 || preset === 9);
+  const hideSpeed = preset === 0 || preset === 1 || preset === 9;
   if (speedSection) {
-    speedSection.style.display = hideSpeed ? 'none' : 'flex';
+    speedSection.style.display = hideSpeed ? "none" : "flex";
   }
   if (speedNote) {
-    speedNote.style.display = hideSpeed ? 'none' : 'block';
+    speedNote.style.display = hideSpeed ? "none" : "block";
   }
 }
 
 // Change LED preset (UI update + send command to device)
 function changeLedPreset() {
-  const presetSelect = document.getElementById('ledPreset');
+  const presetSelect = document.getElementById("ledPreset");
   const preset = parseInt(presetSelect.value);
-  
+
   // Update UI
   updateLedPresetUI();
-  
+
   // If Pilot Colour preset (9) is selected, use pilot color
   if (preset === 9) {
-    const pilotColor = document.getElementById('pilotColor')?.value || '#0080FF';
+    const pilotColor = document.getElementById("pilotColor")?.value || "#0080FF";
     const color = pilotColor.substring(1); // Remove #
-    sendLedCommand('color', { color })
-      .catch(err => console.error('Failed to set pilot color:', err));
+    sendLedCommand("color", { color }).catch((err) => console.error("Failed to set pilot color:", err));
   }
-  
+
   // Send preset command to device
-  sendLedCommand('preset', { preset })
-    .then(data => console.log('LED preset changed:', data))
-    .catch(err => console.error('Failed to change LED preset:', err));
+  sendLedCommand("preset", { preset })
+    .then((data) => console.log("LED preset changed:", data))
+    .catch((err) => console.error("Failed to change LED preset:", err));
 }
 
 function setSolidColor() {
-  const colorInput = document.getElementById('ledSolidColor');
+  const colorInput = document.getElementById("ledSolidColor");
   const color = colorInput.value.substring(1);
-  
-  sendLedCommand('color', { color })
-    .then(data => console.log('LED solid color changed:', data))
-    .catch(err => console.error('Failed to change LED solid color:', err));
+
+  sendLedCommand("color", { color })
+    .then((data) => console.log("LED solid color changed:", data))
+    .catch((err) => console.error("Failed to change LED solid color:", err));
 }
 
 function setFadeColor() {
-  const colorInput = document.getElementById('ledFadeColor');
+  const colorInput = document.getElementById("ledFadeColor");
   const color = colorInput.value.substring(1);
-  
-  sendLedCommand('fadecolor', { color })
-    .then(data => console.log('LED fade color changed:', data))
-    .catch(err => console.error('Failed to change LED fade color:', err));
+
+  sendLedCommand("fadecolor", { color })
+    .then((data) => console.log("LED fade color changed:", data))
+    .catch((err) => console.error("Failed to change LED fade color:", err));
 }
 
 function setStrobeColor() {
-  const colorInput = document.getElementById('ledStrobeColor');
+  const colorInput = document.getElementById("ledStrobeColor");
   const color = colorInput.value.substring(1);
-  
-  sendLedCommand('strobecolor', { color })
-    .then(data => console.log('LED strobe color changed:', data))
-    .catch(err => console.error('Failed to change LED strobe color:', err));
+
+  sendLedCommand("strobecolor", { color })
+    .then((data) => console.log("LED strobe color changed:", data))
+    .catch((err) => console.error("Failed to change LED strobe color:", err));
 }
 
 function updateLedBrightness(obj, value) {
   const brightness = parseInt(value);
-  $(obj).parent().find('span').text(brightness);
-  
-  sendLedCommand('brightness', { brightness })
-    .then(data => console.log('LED brightness changed:', data))
-    .catch(err => console.error('Failed to change LED brightness:', err));
+  $(obj).parent().find("span").text(brightness);
+
+  sendLedCommand("brightness", { brightness })
+    .then((data) => console.log("LED brightness changed:", data))
+    .catch((err) => console.error("Failed to change LED brightness:", err));
 }
 
 function updateLedSpeed(obj, value) {
   const speed = parseInt(value);
-  $(obj).parent().find('span').text(speed);
-  
-  sendLedCommand('speed', { speed })
-    .then(data => console.log('LED speed changed:', data))
-    .catch(err => console.error('Failed to change LED speed:', err));
+  $(obj).parent().find("span").text(speed);
+
+  sendLedCommand("speed", { speed })
+    .then((data) => console.log("LED speed changed:", data))
+    .catch((err) => console.error("Failed to change LED speed:", err));
 }
 
 function toggleLedManualOverride(enabled) {
   const enable = enabled ? 1 : 0;
-  
-  sendLedCommand('override', { enable })
-    .then(data => console.log('LED manual override:', enabled ? 'enabled' : 'disabled', data))
-    .catch(err => console.error('Failed to toggle LED manual override:', err));
+
+  sendLedCommand("override", { enable })
+    .then((data) => console.log("LED manual override:", enabled ? "enabled" : "disabled", data))
+    .catch((err) => console.error("Failed to toggle LED manual override:", err));
 }
 
 function toggleGateLEDs(enabled) {
   const enable = enabled ? 1 : 0;
-  
+
   // Show/hide Gate LED options based on enabled state
-  const optionsDiv = document.getElementById('gateLEDOptions');
+  const optionsDiv = document.getElementById("gateLEDOptions");
   if (optionsDiv) {
-    optionsDiv.style.display = enabled ? 'block' : 'none';
+    optionsDiv.style.display = enabled ? "block" : "none";
   }
-  
+
   // Send the config update
-  fetch('/config', {
-    method: 'POST',
+  fetch("/config", {
+    method: "POST",
     headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json'
+      Accept: "application/json",
+      "Content-Type": "application/json",
     },
-    body: JSON.stringify({ gateLEDsEnabled: enable })
+    body: JSON.stringify({ gateLEDsEnabled: enable }),
   })
-    .then(response => response.json())
-    .then(data => console.log('Gate LEDs:', enabled ? 'enabled' : 'disabled', data))
-    .catch(err => console.error('Failed to toggle Gate LEDs:', err));
+    .then((response) => response.json())
+    .then((data) => console.log("Gate LEDs:", enabled ? "enabled" : "disabled", data))
+    .catch((err) => console.error("Failed to toggle Gate LEDs:", err));
 }
 
 function toggleWebhookRaceStart(enabled) {
   const enable = enabled ? 1 : 0;
-  
-  fetch('/config', {
-    method: 'POST',
+
+  fetch("/config", {
+    method: "POST",
     headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json'
+      Accept: "application/json",
+      "Content-Type": "application/json",
     },
-    body: JSON.stringify({ webhookRaceStart: enable })
+    body: JSON.stringify({ webhookRaceStart: enable }),
   })
-    .then(response => response.json())
-    .then(data => console.log('Webhook Race Start:', enabled ? 'enabled' : 'disabled', data))
-    .catch(err => console.error('Failed to toggle webhook race start:', err));
+    .then((response) => response.json())
+    .then((data) => console.log("Webhook Race Start:", enabled ? "enabled" : "disabled", data))
+    .catch((err) => console.error("Failed to toggle webhook race start:", err));
 }
 
 function toggleWebhookRaceStop(enabled) {
   const enable = enabled ? 1 : 0;
-  
-  fetch('/config', {
-    method: 'POST',
+
+  fetch("/config", {
+    method: "POST",
     headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json'
+      Accept: "application/json",
+      "Content-Type": "application/json",
     },
-    body: JSON.stringify({ webhookRaceStop: enable })
+    body: JSON.stringify({ webhookRaceStop: enable }),
   })
-    .then(response => response.json())
-    .then(data => console.log('Webhook Race Stop:', enabled ? 'enabled' : 'disabled', data))
-    .catch(err => console.error('Failed to toggle webhook race stop:', err));
+    .then((response) => response.json())
+    .then((data) => console.log("Webhook Race Stop:", enabled ? "enabled" : "disabled", data))
+    .catch((err) => console.error("Failed to toggle webhook race stop:", err));
 }
 
 function toggleWebhookLap(enabled) {
   const enable = enabled ? 1 : 0;
-  
-  fetch('/config', {
-    method: 'POST',
+
+  fetch("/config", {
+    method: "POST",
     headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json'
+      Accept: "application/json",
+      "Content-Type": "application/json",
     },
-    body: JSON.stringify({ webhookLap: enable })
+    body: JSON.stringify({ webhookLap: enable }),
   })
-    .then(response => response.json())
-    .then(data => console.log('Webhook Lap:', enabled ? 'enabled' : 'disabled', data))
-    .catch(err => console.error('Failed to toggle webhook lap:', err));
+    .then((response) => response.json())
+    .then((data) => console.log("Webhook Lap:", enabled ? "enabled" : "disabled", data))
+    .catch((err) => console.error("Failed to toggle webhook lap:", err));
 }
 
 function generateAudio() {
@@ -1419,10 +1452,10 @@ function generateAudio() {
   }
 
   const pilotName = pilotNameInput.value;
-  const phoneticName = document.getElementById('pphonetic')?.value || pilotName;
+  const phoneticName = document.getElementById("pphonetic")?.value || pilotName;
   queueSpeak(`<div>Testing sound for pilot ${phoneticName}</div>`);
   for (let i = 1; i <= 3; i++) {
-    queueSpeak('<div>' + i + '</div>')
+    queueSpeak("<div>" + i + "</div>");
   }
 }
 
@@ -1432,39 +1465,40 @@ function doSpeak(obj) {
 
 function updateLapCounter() {
   if (maxLaps === 0) {
-    lapCounter.textContent = `Lap ${Math.max(0, lapNo)}`;
+    lapCounter.textContent = i18n.t("race.lap_counter", { n: Math.max(0, lapNo) });
   } else {
-    lapCounter.textContent = `Lap ${Math.max(0, lapNo)} / ${maxLaps}`;
+    lapCounter.textContent = i18n.t("race.lap_counter", { n: Math.max(0, lapNo) }) + " / " + maxLaps;
   }
 }
 
 function highlightFastestLap() {
   if (lapTimes.length === 0) return;
-  
+
   // Find fastest lap (excluding gate 1 at index 0)
   let fastestTime = Infinity;
   let fastestIndex = -1;
-  
-  for (let i = 1; i < lapTimes.length; i++) {  // Start from 1 to skip gate 1
+
+  for (let i = 1; i < lapTimes.length; i++) {
+    // Start from 1 to skip gate 1
     if (lapTimes[i] < fastestTime) {
       fastestTime = lapTimes[i];
       fastestIndex = i;
     }
   }
-  
+
   // Remove highlight from all rows
   const table = document.getElementById("lapTable");
   for (let i = 1; i < table.rows.length; i++) {
-    table.rows[i].classList.remove('fastest-lap');
+    table.rows[i].classList.remove("fastest-lap");
   }
-  
+
   // Add highlight to fastest lap row
   if (fastestIndex >= 0) {
     for (let i = 1; i < table.rows.length; i++) {
       const row = table.rows[i];
-      const lapIndex = parseInt(row.getAttribute('data-lap-index'));
+      const lapIndex = parseInt(row.getAttribute("data-lap-index"));
       if (lapIndex === fastestIndex) {
-        row.classList.add('fastest-lap');
+        row.classList.add("fastest-lap");
         break;
       }
     }
@@ -1474,51 +1508,51 @@ function highlightFastestLap() {
 async function startRace() {
   updateLapCounter();
   startRaceButton.disabled = true;
-  startRaceButton.classList.add('active');
-  
+  startRaceButton.classList.add("active");
+
   // iOS/Safari: unlock AudioContext for beeps during user interaction
-  if (beepAudioContext && beepAudioContext.state === 'suspended') {
+  if (beepAudioContext && beepAudioContext.state === "suspended") {
     try {
       await beepAudioContext.resume();
-      console.log('[Race] AudioContext resumed for beeps');
+      console.log("[Race] AudioContext resumed for beeps");
     } catch (err) {
-      console.warn('[Race] AudioContext resume failed:', err);
+      console.warn("[Race] AudioContext resume failed:", err);
     }
   }
-  
+
   // Queue both announcements
-  queueSpeak("<p>Arm your quad</p>");
-  queueSpeak("<p>Starting on the tone in less than five</p>");
-  
+  queueSpeak(`<p>${i18n.t("tts.arm_quad")}</p>`);
+  queueSpeak(`<p>${i18n.t("tts.starting_soon")}</p>`);
+
   // Wait for announcements to finish playing
   while (audioAnnouncer.isSpeaking() || audioAnnouncer.audioQueue.length > 0) {
     await new Promise((r) => setTimeout(r, 100));
   }
-  
+
   // Add random delay between 1-5 seconds after announcements complete
   let delayTime = Math.random() * (5000 - 1000) + 1000;
   await new Promise((r) => setTimeout(r, delayTime));
-  
+
   // Play start beep and begin race
   beep(1, 1, "square"); // needed for some reason to make sure we fire the first beep
   beep(500, 880, "square");
-  
+
   // Vibrate for mobile devices (works even in silent mode on iOS)
   if (navigator.vibrate) {
     navigator.vibrate(500); // 500ms vibration
   }
-  
+
   startTimer();
-  startRaceButton.classList.remove('active');
+  startRaceButton.classList.remove("active");
   stopRaceButton.disabled = false;
   addLapButton.disabled = false;
-  
+
   // Initialize lap timing for distance estimation
   currentLapStartTime = Date.now();
   lapTimerStartMs = Date.now();
   lastCompletedLapTime = 0;
   currentLapDistance = 0.0;
-  
+
   // Start polling distance if tracks enabled
   startDistancePolling();
 }
@@ -1528,14 +1562,15 @@ function stopRace() {
   if (audioAnnouncer) {
     audioAnnouncer.clearQueue();
   }
-  queueSpeak('<p>Race stopped</p>');
+  queueSpeak(`<p>${i18n.t("tts.race_stopped")}</p>`);
   clearInterval(timerInterval);
-  timer.innerHTML = "00:00:00s";
+  timer.innerHTML = i18n.t("race.timer_default");
 
   if (usbConnected && transportManager) {
-    transportManager.sendCommand('timer/stop', 'POST')
+    transportManager
+      .sendCommand("timer/stop", "POST")
       .then((response) => console.log("/timer/stop:", response))
-      .catch(err => console.error('Failed to stop timer:', err));
+      .catch((err) => console.error("Failed to stop timer:", err));
   } else {
     fetch("/timer/stop", {
       method: "POST",
@@ -1551,7 +1586,7 @@ function stopRace() {
   stopRaceButton.disabled = true;
   startRaceButton.disabled = false;
   addLapButton.disabled = true;
-  
+
   // Stop distance polling
   stopDistancePolling();
 
@@ -1585,17 +1620,16 @@ function clearLaps() {
   lapNo = -1;
   lapTimes = [];
   updateLapCounter();
-  
+
   // Clear lap analysis
-  document.getElementById('analysisContent').innerHTML = 
-    '<p class="no-data">Complete at least 1 lap to see analysis</p>';
-  document.getElementById('statFastest').textContent = '--';
-  document.getElementById('statFastestLapNo').textContent = '';
-  document.getElementById('statFastest3Consec').textContent = '--';
-  document.getElementById('statFastest3ConsecLaps').textContent = '';
-  document.getElementById('statMedian').textContent = '--';
-  document.getElementById('statBest3').textContent = '--';
-  document.getElementById('statBest3Laps').textContent = '';
+  document.getElementById("analysisContent").innerHTML = `<p class="no-data">${i18n.t("analysis.no_data")}</p>`;
+  document.getElementById("statFastest").textContent = "--";
+  document.getElementById("statFastestLapNo").textContent = "";
+  document.getElementById("statFastest3Consec").textContent = "--";
+  document.getElementById("statFastest3ConsecLaps").textContent = "";
+  document.getElementById("statMedian").textContent = "--";
+  document.getElementById("statBest3").textContent = "--";
+  document.getElementById("statBest3Laps").textContent = "";
 }
 
 // EventSource initialization moved to setupWiFiEvents() function above
@@ -1613,42 +1647,42 @@ function setBandChannelIndex(freq) {
 
 // Theme functionality
 function changeTheme() {
-    const theme = document.getElementById('themeSelect').value;
-    if (theme === 'lighter') {
-      document.documentElement.removeAttribute('data-theme');
-    } else {
-      document.documentElement.setAttribute('data-theme', theme);
-    }
-    updateThemeLogos(theme);
-    autoSaveConfig(); // Save to device
+  const theme = document.getElementById("themeSelect").value;
+  if (theme === "lighter") {
+    document.documentElement.removeAttribute("data-theme");
+  } else {
+    document.documentElement.setAttribute("data-theme", theme);
   }
-  
-  function updateThemeLogos(theme) {
-    // Light themes list
-    const lightThemes = new Set(['lighter','github','onelight','solarizedlight','lightowl']);
-    const isLight = lightThemes.has(theme);
-    const favicon = document.getElementById('favicon');
-    const headerLogo = document.getElementById('headerLogo');
-    const logoPath = isLight ? 'logo-black.svg' : 'logo-white.svg';
-    if (favicon) {
-      favicon.href = logoPath;
-      favicon.type = 'image/svg+xml';
-    }
-    if (headerLogo) headerLogo.src = logoPath;
+  updateThemeLogos(theme);
+  autoSaveConfig(); // Save to device
+}
+
+function updateThemeLogos(theme) {
+  // Light themes list
+  const lightThemes = new Set(["lighter", "github", "onelight", "solarizedlight", "lightowl"]);
+  const isLight = lightThemes.has(theme);
+  const favicon = document.getElementById("favicon");
+  const headerLogo = document.getElementById("headerLogo");
+  const logoPath = isLight ? "logo-black.svg" : "logo-white.svg";
+  if (favicon) {
+    favicon.href = logoPath;
+    favicon.type = "image/svg+xml";
   }
+  if (headerLogo) headerLogo.src = logoPath;
+}
 
 function loadDarkMode() {
-    // Theme is now loaded from device config on page load
-    // This function is kept for compatibility but may not be needed
-    const themeSelect = document.getElementById('themeSelect');
-    if (themeSelect && themeSelect.value) {
-      const theme = themeSelect.value;
-      if (theme !== 'lighter') {
-        document.documentElement.setAttribute('data-theme', theme);
-      }
-      updateThemeLogos(theme);
+  // Theme is now loaded from device config on page load
+  // This function is kept for compatibility but may not be needed
+  const themeSelect = document.getElementById("themeSelect");
+  if (themeSelect && themeSelect.value) {
+    const theme = themeSelect.value;
+    if (theme !== "lighter") {
+      document.documentElement.setAttribute("data-theme", theme);
     }
+    updateThemeLogos(theme);
   }
+}
 
 // Manual lap addition
 function addManualLap() {
@@ -1659,79 +1693,79 @@ function addManualLap() {
     const minutes = parseInt(match[1]);
     const seconds = parseInt(match[2]);
     const centiseconds = parseInt(match[3]);
-    const totalMs = (minutes * 60000) + (seconds * 1000) + (centiseconds * 10);
-    
+    const totalMs = minutes * 60000 + seconds * 1000 + centiseconds * 10;
+
     // Calculate lap time in milliseconds
-    const lapTimeMs = totalMs - (lapNo >= 0 ? lapTimes.reduce((a, b) => a + (b * 1000), 0) : 0);
-    
+    const lapTimeMs = totalMs - (lapNo >= 0 ? lapTimes.reduce((a, b) => a + b * 1000, 0) : 0);
+
     // Send lap to backend to broadcast to all clients (including OSD)
     if (usbConnected && transportManager) {
-      transportManager.sendCommand('timer/addLap', 'POST', { lapTime: lapTimeMs })
-        .then(data => console.log('Manual lap broadcasted:', data))
-        .catch(err => console.error('Failed to broadcast manual lap:', err));
+      transportManager
+        .sendCommand("timer/addLap", "POST", { lapTime: lapTimeMs })
+        .then((data) => console.log("Manual lap broadcasted:", data))
+        .catch((err) => console.error("Failed to broadcast manual lap:", err));
     } else {
-      fetch('/timer/addLap', {
-        method: 'POST',
+      fetch("/timer/addLap", {
+        method: "POST",
         headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
+          Accept: "application/json",
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify({ lapTime: lapTimeMs })
+        body: JSON.stringify({ lapTime: lapTimeMs }),
       })
-        .then(response => response.json())
-        .then(data => console.log('Manual lap broadcasted:', data))
-        .catch(err => console.error('Failed to broadcast manual lap:', err));
+        .then((response) => response.json())
+        .then((data) => console.log("Manual lap broadcasted:", data))
+        .catch((err) => console.error("Failed to broadcast manual lap:", err));
     }
-    
+
     // Note: The lap will be added via EventSource lap event
     // No need to call addLap() here as it will come back through the event stream
   }
 }
 
 // Lap Analysis
-let currentAnalysisMode = 'history';
+let currentAnalysisMode = "history";
 
 // Color palette for bar variations
 const barColors = [
-  ['#42A5F5', '#1E88E5'], // Blue
-  ['#66BB6A', '#43A047'], // Green
-  ['#FFA726', '#FB8C00'], // Orange
-  ['#AB47BC', '#8E24AA'], // Purple
-  ['#26C6DA', '#00ACC1'], // Cyan
-  ['#FFCA28', '#FFB300'], // Amber
-  ['#EF5350', '#E53935'], // Red
-  ['#5C6BC0', '#3F51B5'], // Indigo
-  ['#EC407A', '#D81B60'], // Pink
-  ['#78909C', '#607D8B'], // Blue Grey
+  ["#42A5F5", "#1E88E5"], // Blue
+  ["#66BB6A", "#43A047"], // Green
+  ["#FFA726", "#FB8C00"], // Orange
+  ["#AB47BC", "#8E24AA"], // Purple
+  ["#26C6DA", "#00ACC1"], // Cyan
+  ["#FFCA28", "#FFB300"], // Amber
+  ["#EF5350", "#E53935"], // Red
+  ["#5C6BC0", "#3F51B5"], // Indigo
+  ["#EC407A", "#D81B60"], // Pink
+  ["#78909C", "#607D8B"], // Blue Grey
 ];
 
 function switchAnalysisMode(mode) {
   currentAnalysisMode = mode;
   // Update tab styling
-  document.querySelectorAll('.analysis-tab').forEach(tab => {
-    tab.classList.remove('active');
+  document.querySelectorAll(".analysis-tab").forEach((tab) => {
+    tab.classList.remove("active");
   });
-  event.target.classList.add('active');
+  event.target.classList.add("active");
   // Re-render analysis
   updateAnalysisView();
 }
 
 function updateAnalysisView() {
   if (lapTimes.length === 0) {
-    document.getElementById('analysisContent').innerHTML = 
-      '<p class="no-data">Complete at least 1 lap to see analysis</p>';
+    document.getElementById("analysisContent").innerHTML = `<p class="no-data">${i18n.t("analysis.no_data")}</p>`;
     return;
   }
-  
+
   // Update stats boxes
   updateStatsBoxes();
-  
+
   // Update chart view
-  switch(currentAnalysisMode) {
-    case 'history':
+  switch (currentAnalysisMode) {
+    case "history":
       renderLapHistory();
       break;
-    case 'fastestRound':
+    case "fastestRound":
       renderFastestRound();
       break;
   }
@@ -1739,33 +1773,33 @@ function updateAnalysisView() {
 
 function updateStatsBoxes() {
   if (lapTimes.length === 0) {
-    document.getElementById('statFastest').textContent = '--';
-    document.getElementById('statFastestLapNo').textContent = '';
-    document.getElementById('statFastest3Consec').textContent = '--';
-    document.getElementById('statFastest3ConsecLaps').textContent = '';
-    document.getElementById('statMedian').textContent = '--';
-    document.getElementById('statBest3').textContent = '--';
-    document.getElementById('statBest3Laps').textContent = '';
+    document.getElementById("statFastest").textContent = "--";
+    document.getElementById("statFastestLapNo").textContent = "";
+    document.getElementById("statFastest3Consec").textContent = "--";
+    document.getElementById("statFastest3ConsecLaps").textContent = "";
+    document.getElementById("statMedian").textContent = "--";
+    document.getElementById("statBest3").textContent = "--";
+    document.getElementById("statBest3Laps").textContent = "";
     return;
   }
-  
+
   // Fastest Lap (excluding Gate 1 which is just passing through to start)
   const validLaps = lapTimes.slice(1); // Skip Gate 1
   if (validLaps.length === 0) {
-    document.getElementById('statFastest').textContent = '--';
-    document.getElementById('statFastestLapNo').textContent = 'Need 1 lap';
+    document.getElementById("statFastest").textContent = "--";
+    document.getElementById("statFastestLapNo").textContent = i18n.t("analysis.need_1_lap");
   } else {
     const fastest = Math.min(...validLaps);
     const fastestIndex = validLaps.indexOf(fastest) + 1; // +1 to account for skipped Gate 1
-    document.getElementById('statFastest').textContent = `${fastest.toFixed(2)}s`;
-    document.getElementById('statFastestLapNo').textContent = `Lap ${fastestIndex}`;
+    document.getElementById("statFastest").textContent = `${fastest.toFixed(2)}${i18n.t("race.seconds_short")}`;
+    document.getElementById("statFastestLapNo").textContent = i18n.t("race.lap_counter", { n: fastestIndex });
   }
-  
+
   // Fastest 3 Consecutive Laps (for RaceGOW format) - skip Gate 1
   if (validLaps.length >= 3) {
     let fastestConsecTime = Infinity;
     let fastestConsecStart = -1;
-    
+
     // Check all consecutive 3-lap windows (starting from Lap 1, not Gate 1)
     for (let i = 0; i <= validLaps.length - 3; i++) {
       const consecTime = validLaps[i] + validLaps[i + 1] + validLaps[i + 2];
@@ -1774,39 +1808,40 @@ function updateStatsBoxes() {
         fastestConsecStart = i + 1; // +1 to account for skipped Gate 1
       }
     }
-    
-    document.getElementById('statFastest3Consec').textContent = `${fastestConsecTime.toFixed(2)}s`;
+
+    document.getElementById("statFastest3Consec").textContent = `${fastestConsecTime.toFixed(2)}${i18n.t("race.seconds_short")}`;
     const lapNums = `L${fastestConsecStart}-L${fastestConsecStart + 1}-L${fastestConsecStart + 2}`;
-    document.getElementById('statFastest3ConsecLaps').textContent = lapNums;
+    document.getElementById("statFastest3ConsecLaps").textContent = lapNums;
   } else {
-    document.getElementById('statFastest3Consec').textContent = '--';
-    document.getElementById('statFastest3ConsecLaps').textContent = 'Need 3 laps';
+    document.getElementById("statFastest3Consec").textContent = "--";
+    document.getElementById("statFastest3ConsecLaps").textContent = i18n.t("analysis.need_3_laps");
   }
-  
+
   // Median Lap (excluding Gate 1)
   if (validLaps.length === 0) {
-    document.getElementById('statMedian').textContent = '--';
+    document.getElementById("statMedian").textContent = "--";
   } else {
     const sorted = [...validLaps].sort((a, b) => a - b);
     const mid = Math.floor(sorted.length / 2);
-    const median = sorted.length % 2 === 0 ? 
-      (sorted[mid - 1] + sorted[mid]) / 2 : 
-      sorted[mid];
-    document.getElementById('statMedian').textContent = `${median.toFixed(2)}s`;
+    const median = sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+    document.getElementById("statMedian").textContent = median.toFixed(2) + i18n.t("race.seconds_short");
   }
-  
+
   // Best 3 Laps (sum of 3 fastest individual laps) - skip Gate 1
   if (validLaps.length >= 3) {
     const lapsWithIndex = validLaps.map((time, index) => ({ time, index: index + 1 })); // +1 for actual lap number
     lapsWithIndex.sort((a, b) => a.time - b.time);
     const best3 = lapsWithIndex.slice(0, 3);
     const totalTime = best3.reduce((sum, l) => sum + l.time, 0);
-    const lapNumbers = best3.map(l => `L${l.index}`).sort().join(', ');
-    document.getElementById('statBest3').textContent = `${totalTime.toFixed(2)}s`;
-    document.getElementById('statBest3Laps').textContent = lapNumbers;
+    const lapNumbers = best3
+      .map((l) => `L${l.index}`)
+      .sort()
+      .join(", ");
+    document.getElementById("statBest3").textContent = `${totalTime.toFixed(2)}${i18n.t("race.seconds_short")}`;
+    document.getElementById("statBest3Laps").textContent = lapNumbers;
   } else {
-    document.getElementById('statBest3').textContent = '--';
-    document.getElementById('statBest3Laps').textContent = 'Need 3 laps';
+    document.getElementById("statBest3").textContent = "--";
+    document.getElementById("statBest3Laps").textContent = i18n.t("analysis.need_3_laps");
   }
 }
 
@@ -1815,54 +1850,53 @@ function renderLapHistory() {
   const recentLaps = lapTimes.slice(-10);
   const startIndex = Math.max(0, lapTimes.length - 10);
   const maxTime = Math.max(...recentLaps);
-  
+
   let html = '<div class="analysis-bars">';
   recentLaps.forEach((time, index) => {
     const lapNumber = startIndex + index + 1;
     const colorIndex = (startIndex + index) % barColors.length;
-    html += createBarItemWithColor(`Lap ${lapNumber}`, time, maxTime, `${time.toFixed(2)}s`, colorIndex);
+    html += createBarItemWithColor(i18n.t("race.lap_counter", { n: lapNumber }), time, maxTime, time.toFixed(2) + i18n.t("race.seconds_short"), colorIndex);
   });
-  html += '</div>';
-  
+  html += "</div>";
+
   if (lapTimes.length > 10) {
     html += `<p style="text-align: center; margin-top: 16px; color: var(--secondary-color); font-size: 14px;">Showing last 10 of ${lapTimes.length} laps</p>`;
   }
-  
-  document.getElementById('analysisContent').innerHTML = html;
+
+  document.getElementById("analysisContent").innerHTML = html;
 }
 
 function renderFastestRound() {
   if (lapTimes.length < 3) {
-    document.getElementById('analysisContent').innerHTML = 
-      '<p class="no-data">Complete at least 3 laps to see fastest round</p>';
+    document.getElementById("analysisContent").innerHTML = `<p class="no-data">${i18n.t("analysis.no_data_3_laps")}</p>`;
     return;
   }
-  
+
   // Find best consecutive 3 laps
   let bestTime = Infinity;
   let bestStartIndex = 0;
-  
+
   for (let i = 0; i <= lapTimes.length - 3; i++) {
-    const sum = lapTimes[i] + lapTimes[i+1] + lapTimes[i+2];
+    const sum = lapTimes[i] + lapTimes[i + 1] + lapTimes[i + 2];
     if (sum < bestTime) {
       bestTime = sum;
       bestStartIndex = i;
     }
   }
-  
+
   const lap1 = lapTimes[bestStartIndex];
   const lap2 = lapTimes[bestStartIndex + 1];
   const lap3 = lapTimes[bestStartIndex + 2];
   const maxTime = Math.max(lap1, lap2, lap3);
-  
+
   let html = '<div class="analysis-bars">';
-  html += createBarItemWithColor(`Lap ${bestStartIndex + 1}`, lap1, maxTime, `${lap1.toFixed(2)}s`, 0);
-  html += createBarItemWithColor(`Lap ${bestStartIndex + 2}`, lap2, maxTime, `${lap2.toFixed(2)}s`, 1);
-  html += createBarItemWithColor(`Lap ${bestStartIndex + 3}`, lap3, maxTime, `${lap3.toFixed(2)}s`, 2);
-  html += '</div>';
-  html += `<p style="text-align: center; margin-top: 16px; font-weight: bold; color: var(--primary-color);">Total: ${bestTime.toFixed(2)}s</p>`;
-  
-  document.getElementById('analysisContent').innerHTML = html;
+  html += createBarItemWithColor(i18n.t("race.lap_counter", { n: bestStartIndex + 1 }), lap1, maxTime, `${lap1.toFixed(2)}${i18n.t("race.seconds_short")}`, 0);
+  html += createBarItemWithColor(i18n.t("race.lap_counter", { n: bestStartIndex + 2 }), lap2, maxTime, `${lap2.toFixed(2)}${i18n.t("race.seconds_short")}`, 1);
+  html += createBarItemWithColor(i18n.t("race.lap_counter", { n: bestStartIndex + 3 }), lap3, maxTime, `${lap3.toFixed(2)}${i18n.t("race.seconds_short")}`, 2);
+  html += "</div>";
+  html += `<p style="text-align: center; margin-top: 16px; font-weight: bold; color: var(--primary-color);">${i18n.t("analysis.total", { n: bestTime.toFixed(2) })}</p>`;
+
+  document.getElementById("analysisContent").innerHTML = html;
 }
 
 function createBarItemWithColor(label, time, maxTime, displayTime, colorIndex) {
@@ -1886,25 +1920,25 @@ let currentDetailRace = null;
 
 function saveCurrentRace() {
   if (lapTimes.length === 0) return;
-  
+
   // Calculate stats (excluding Gate 1)
   const validLaps = lapTimes.slice(1);
   const fastest = validLaps.length > 0 ? Math.min(...validLaps) : 0;
   const sorted = [...validLaps].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
   const median = sorted.length > 0 ? (sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid]) : 0;
-  
+
   let best3Total = 0;
   if (validLaps.length >= 3) {
     const best3 = sorted.slice(0, 3);
     best3Total = best3.reduce((sum, t) => sum + t, 0);
   }
-  
+
   // Get current pilot and frequency info
-  const pilotCallsign = document.getElementById('pcallsign')?.value || '';
+  const pilotCallsign = document.getElementById("pcallsign")?.value || "";
   const bandValue = bandSelect.options[bandSelect.selectedIndex].value;
   const channelValue = parseInt(channelSelect.options[channelSelect.selectedIndex].value);
-  
+
   // Calculate total race distance: track length per lap × number of laps
   let totalRaceDistance = 0;
   console.log(`DEBUG: trackLapLength=${trackLapLength}, currentTrackId=${currentTrackId}, currentTrackName='${currentTrackName}'`);
@@ -1915,100 +1949,100 @@ function saveCurrentRace() {
     console.warn(`WARNING: No track distance to save! trackLapLength=${trackLapLength}, lapCount=${lapTimes.length}`);
     console.warn(`Did you select a track before starting the race? currentTrackId=${currentTrackId}`);
   }
-  
+
   const raceData = {
     timestamp: Math.floor(Date.now() / 1000),
-    lapTimes: lapTimes.map(t => Math.round(t * 1000)), // Convert to milliseconds
+    lapTimes: lapTimes.map((t) => Math.round(t * 1000)), // Convert to milliseconds
     fastestLap: Math.round(fastest * 1000),
     medianLap: Math.round(median * 1000),
     best3LapsTotal: Math.round(best3Total * 1000),
-    pilotName: pilotNameInput.value || '',
+    pilotName: pilotNameInput.value || "",
     pilotCallsign: pilotCallsign,
     frequency: frequency,
     band: bandValue,
     channel: channelValue,
     trackId: currentTrackId || 0,
-    trackName: currentTrackName || '',
-    totalDistance: totalRaceDistance
+    trackName: currentTrackName || "",
+    totalDistance: totalRaceDistance,
   };
-  
-  fetch('/races/save', {
-    method: 'POST',
+
+  fetch("/races/save", {
+    method: "POST",
     headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json'
+      Accept: "application/json",
+      "Content-Type": "application/json",
     },
-    body: JSON.stringify(raceData)
+    body: JSON.stringify(raceData),
   })
-  .then(response => response.json())
-  .then(data => {
-    console.log('Race saved:', data);
-    loadRaceHistory();
-  })
-  .catch(error => console.error('Error saving race:', error));
+    .then((response) => response.json())
+    .then((data) => {
+      console.log("Race saved:", data);
+      loadRaceHistory();
+    })
+    .catch((error) => console.error("Error saving race:", error));
 }
 
 function loadRaceHistory() {
-  fetch('/races')
-    .then(response => response.json())
-    .then(data => {
+  fetch("/races")
+    .then((response) => response.json())
+    .then((data) => {
       raceHistoryData = data.races || [];
       renderRaceHistory();
     })
-    .catch(error => console.error('Error loading races:', error));
+    .catch((error) => console.error("Error loading races:", error));
 }
 
 function renderRaceHistory() {
-  const listContainer = document.getElementById('raceHistoryList');
-  
+  const listContainer = document.getElementById("raceHistoryList");
+
   if (raceHistoryData.length === 0) {
-    listContainer.innerHTML = '<p class="no-data">No races saved yet</p>';
+    listContainer.innerHTML = `<p class="no-data">${i18n.t("history.no_data")}</p>`;
     return;
   }
-  
-  let html = '';
+
+  let html = "";
   raceHistoryData.forEach((race, index) => {
     const date = new Date(race.timestamp * 1000);
-    const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+    const dateStr = date.toLocaleDateString() + " " + date.toLocaleTimeString();
     const fastestLap = (race.fastestLap / 1000).toFixed(2);
     // Lap count should exclude Gate 1 (first entry)
     const actualLapCount = race.lapTimes.length > 0 ? race.lapTimes.length - 1 : 0;
     // Calculate total race time (sum of all times)
     const totalTime = race.lapTimes.reduce((sum, t) => sum + t, 0) / 1000;
-    const name = race.name || '';
-    const tag = race.tag || '';
-    const pilotCallsign = race.pilotCallsign || race.pilotName || '';
-    const freqDisplay = race.frequency ? `${race.band}${race.channel} (${race.frequency}MHz)` : '';
-    const trackDisplay = race.trackName ? race.trackName : '';
-    const distanceDisplay = race.totalDistance ? `${race.totalDistance.toFixed(1)}m` : '';
-    
+    const name = race.name || "";
+    const tag = race.tag || "";
+    const pilotCallsign = race.pilotCallsign || race.pilotName || "";
+    const freqDisplay = race.frequency ? `${race.band}${race.channel} (${race.frequency}MHz)` : "";
+    const trackDisplay = race.trackName ? race.trackName : "";
+    const distanceDisplay = race.totalDistance ? `${race.totalDistance.toFixed(1)}m` : "";
+
     html += `
       <div class="race-item" data-race-index="${index}" onclick="viewRaceDetails(${index})">
         <div class="race-item-buttons">
-          <button class="race-item-button" onclick="event.stopPropagation(); openEditModal(${index})">Edit</button>
-          <button class="race-item-button" onclick="event.stopPropagation(); downloadSingleRace(${race.timestamp})">Download</button>
-          <button class="race-item-button" style="border-color: #e74c3c; color: #e74c3c;" onclick="event.stopPropagation(); deleteRace(${race.timestamp})">Delete</button>
+          <button class="race-item-button" onclick="event.stopPropagation(); openEditModal(${index})">${i18n.t("history.edit")}</button>
+          <button class="race-item-button" onclick="event.stopPropagation(); downloadSingleRace(${race.timestamp})">${i18n.t("history.download")}</button>
+          <button class="race-item-button" style="border-color: #e74c3c; color: #e74c3c;" onclick="event.stopPropagation(); deleteRace(${race.timestamp})">${i18n.t("history.delete")}</button>
         </div>
         <div class="race-item-header">
           <div>
-            ${tag ? '<span class="race-tag">' + tag + '</span>' : ''}
+            ${tag ? '<span class="race-tag">' + tag + "</span>" : ""}
             <div class="race-date">${dateStr}</div>
-            ${name ? '<div class="race-name">' + name + '</div>' : ''}
-            ${pilotCallsign ? '<div style="font-size: 14px; color: var(--secondary-color); margin-top: 4px;">Pilot: ' + pilotCallsign + '</div>' : ''}
-            ${freqDisplay ? '<div style="font-size: 14px; color: var(--secondary-color);">Channel: ' + freqDisplay + '</div>' : ''}
-            ${trackDisplay ? '<div style="font-size: 14px; color: var(--secondary-color);">Track: ' + trackDisplay + (distanceDisplay ? ' (' + distanceDisplay + ')' : '') + '</div>' : ''}
+            ${name ? '<div class="race-name">' + name + "</div>" : ""}
+            ${pilotCallsign ? '<div style="font-size: 14px; color: var(--secondary-color); margin-top: 4px;">' + i18n.t("history.item_pilot", { n: pilotCallsign }) + "</div>" : ""}
+            ${freqDisplay ? '<div style="font-size: 14px; color: var(--secondary-color);">' + i18n.t("history.item_channel", { n: freqDisplay }) + "</div>" : ""}
+            ${trackDisplay ? '<div style="font-size: 14px; color: var(--secondary-color);">' + i18n.t("history.item_track", { n: trackDisplay + (distanceDisplay ? " (" + distanceDisplay + ")" : "") }) + "</div>" : ""}
           </div>
         </div>
         <div class="race-item-stats">
-          <div class="race-item-stat">Laps: <strong>${actualLapCount}</strong></div>
-          <div class="race-item-stat">Fastest: <strong>${fastestLap}s</strong></div>
-          <div class="race-item-stat">Total Time: <strong>${totalTime.toFixed(2)}s</strong></div>
-          ${distanceDisplay ? '<div class="race-item-stat">Distance: <strong>' + distanceDisplay + '</strong></div>' : ''}
+          <div class="race-item-stat">${i18n.t("history.item_laps", { n: "<strong>" + actualLapCount + "</strong>" })}</div>
+          <div class="race-item-stat">${i18n.t("history.item_fastest", { n: "<strong>" + fastestLap + "</strong>" })}</div>
+          <div class="race-item-stat">${i18n.t("history.item_total_time", { n: "<strong>" + totalTime.toFixed(2) + "</strong>" })}</div>
+          ${distanceDisplay ? '<div class="race-item-stat">' + i18n.t("history.item_distance", { n: "<strong>" + distanceDisplay + "</strong>" }) + "</div>" : ""}
         </div>
       </div>
     `;
   });
-  
+
   listContainer.innerHTML = html;
 }
 
@@ -2016,137 +2050,137 @@ function viewRaceDetails(index) {
   currentDetailRace = raceHistoryData[index];
   const race = currentDetailRace;
   const date = new Date(race.timestamp * 1000);
-  const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
-  
+  const dateStr = date.toLocaleDateString() + " " + date.toLocaleTimeString();
+
   // Calculate total race time
   const totalTime = race.lapTimes.reduce((sum, t) => sum + t, 0) / 1000;
-  
-  document.getElementById('raceDetailsTitle').textContent = `Race - ${dateStr}`;
-  document.getElementById('detailFastest').textContent = (race.fastestLap / 1000).toFixed(2) + 's';
-  document.getElementById('detailMedian').textContent = (race.medianLap / 1000).toFixed(2) + 's';
-  document.getElementById('detailBest3').textContent = (race.best3LapsTotal / 1000).toFixed(2) + 's';
-  document.getElementById('detailTotalTime').textContent = totalTime.toFixed(2) + 's';
-  
+
+  document.getElementById("raceDetailsTitle").textContent = i18n.t("history.details_title_with_date", { date: dateStr });
+  document.getElementById("detailFastest").textContent = (race.fastestLap / 1000).toFixed(2) + i18n.t("race.seconds_short");
+  document.getElementById("detailMedian").textContent = (race.medianLap / 1000).toFixed(2) + i18n.t("race.seconds_short");
+  document.getElementById("detailBest3").textContent = (race.best3LapsTotal / 1000).toFixed(2) + i18n.t("race.seconds_short");
+  document.getElementById("detailTotalTime").textContent = totalTime.toFixed(2) + i18n.t("race.seconds_short");
+
   // Get the clicked race item element
   const raceItem = document.querySelector(`.race-item[data-race-index="${index}"]`);
-  const detailsDiv = document.getElementById('raceDetails');
-  
+  const detailsDiv = document.getElementById("raceDetails");
+
   // Remove from current position
   if (detailsDiv.parentNode) {
     detailsDiv.parentNode.removeChild(detailsDiv);
   }
-  
+
   // Insert after the clicked race item
   if (raceItem && raceItem.parentNode) {
     raceItem.parentNode.insertBefore(detailsDiv, raceItem.nextSibling);
   }
-  
-  detailsDiv.style.display = 'block';
-  
+
+  detailsDiv.style.display = "block";
+
   // Render the race timeline
   renderRaceTimeline(race);
-  
+
   // Smooth scroll to the details
   setTimeout(() => {
-    detailsDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    detailsDiv.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, 50);
-  
-  switchDetailMode('history');
+
+  switchDetailMode("history");
 }
 
 function renderRaceTimeline(race) {
-  const container = document.getElementById('raceTimeline');
+  const container = document.getElementById("raceTimeline");
   if (!container) return;
-  
+
   // Clear existing events (keep the bar)
-  const existingEvents = container.querySelectorAll('.timeline-event');
-  existingEvents.forEach(event => event.remove());
-  
-  const lapTimes = race.lapTimes.map(t => t / 1000); // Convert to seconds
+  const existingEvents = container.querySelectorAll(".timeline-event");
+  existingEvents.forEach((event) => event.remove());
+
+  const lapTimes = race.lapTimes.map((t) => t / 1000); // Convert to seconds
   const totalTime = lapTimes.reduce((sum, t) => sum + t, 0);
-  
+
   // Create events array with cumulative times
   const events = [];
   let cumulativeTime = 0;
-  
+
   // Race Start (time 0)
   events.push({
-    type: 'start',
-    label: 'Race Start',
+    type: "start",
+    label: i18n.t("history.timeline_start"),
     time: 0,
-    percentage: 0
+    percentage: 0,
   });
-  
+
   // Gate 1 and Laps
   lapTimes.forEach((lapTime, index) => {
     cumulativeTime += lapTime;
     const percentage = (cumulativeTime / totalTime) * 100;
-    
+
     if (index === 0) {
       // Gate 1
       events.push({
-        type: 'gate',
-        label: 'Gate 1',
+        type: "gate",
+        label: i18n.t("race.gate1"),
         time: cumulativeTime,
-        percentage: percentage
+        percentage: percentage,
       });
     } else {
       // Regular laps
       events.push({
-        type: 'lap',
-        label: `Lap ${index}`,
+        type: "lap",
+        label: i18n.t("race.lap_counter", { n: index }),
         time: cumulativeTime,
-        percentage: percentage
+        percentage: percentage,
       });
     }
   });
-  
+
   // Race Stop (at total time)
   events.push({
-    type: 'stop',
-    label: 'Race Stop',
+    type: "stop",
+    label: i18n.t("history.timeline_stop"),
     time: totalTime,
-    percentage: 100
+    percentage: 100,
   });
-  
+
   // Render events on timeline
   events.forEach((event, index) => {
-    const eventDiv = document.createElement('div');
-    eventDiv.className = 'timeline-event';
-    
+    const eventDiv = document.createElement("div");
+    eventDiv.className = "timeline-event";
+
     // Race Start and Stop go above, everything else below
-    if (event.type === 'start' || event.type === 'stop') {
-      eventDiv.classList.add('above');
+    if (event.type === "start" || event.type === "stop") {
+      eventDiv.classList.add("above");
     } else {
-      eventDiv.classList.add('below');
+      eventDiv.classList.add("below");
     }
-    
+
     eventDiv.style.left = `${event.percentage}%`;
-    eventDiv.title = `${event.label} - ${event.time.toFixed(2)}s`;
-    
+    eventDiv.title = `${event.label} - ${event.time.toFixed(2)}` + i18n.t("race.seconds_short");
+
     eventDiv.innerHTML = `
       <div class="timeline-flag ${event.type}"></div>
       <div class="timeline-label">${event.label}</div>
-      <div class="timeline-time">${event.time.toFixed(2)}s</div>
+      <div class="timeline-time">${event.time.toFixed(2)}${i18n.t("race.seconds_short")}</div>
     `;
-    
+
     container.appendChild(eventDiv);
   });
-  
+
   // Add lap time indicators between events
   for (let i = 1; i < events.length; i++) {
     const prevEvent = events[i - 1];
     const currentEvent = events[i];
     const lapTime = currentEvent.time - prevEvent.time;
     const midPoint = (prevEvent.percentage + currentEvent.percentage) / 2;
-    
+
     // Only show lap time if there's enough space
     if (currentEvent.percentage - prevEvent.percentage > 5) {
-      const lapTimeDiv = document.createElement('div');
-      lapTimeDiv.className = 'timeline-lap-time';
+      const lapTimeDiv = document.createElement("div");
+      lapTimeDiv.className = "timeline-lap-time";
       lapTimeDiv.style.left = `${midPoint}%`;
-      lapTimeDiv.textContent = `${lapTime.toFixed(2)}s`;
-      lapTimeDiv.title = `Time between ${prevEvent.label} and ${currentEvent.label}`;
+      lapTimeDiv.textContent = lapTime.toFixed(2) + i18n.t("race.seconds_short");
+      lapTimeDiv.title = i18n.t("history.timeline_gap", { prev: prevEvent.label, current: currentEvent.label });
       container.appendChild(lapTimeDiv);
     }
   }
@@ -2154,7 +2188,7 @@ function renderRaceTimeline(race) {
 
 function closeRaceDetails() {
   stopPlayback(); // Stop any ongoing playback
-  document.getElementById('raceDetails').style.display = 'none';
+  document.getElementById("raceDetails").style.display = "none";
   currentDetailRace = null;
 }
 
@@ -2166,25 +2200,25 @@ let playbackTotalTime = 0;
 
 function playbackRace() {
   if (!currentDetailRace) return;
-  
-  const playBtn = document.getElementById('playbackBtn');
-  const stopBtn = document.getElementById('stopPlaybackBtn');
-  const enableWebhooks = document.getElementById('playbackWebhooks').checked;
-  const playhead = document.getElementById('timelinePlayhead');
-  
-  playBtn.style.display = 'none';
-  stopBtn.style.display = 'inline-block';
-  
-  const lapTimes = currentDetailRace.lapTimes.map(t => t / 1000); // Convert to seconds
+
+  const playBtn = document.getElementById("playbackBtn");
+  const stopBtn = document.getElementById("stopPlaybackBtn");
+  const enableWebhooks = document.getElementById("playbackWebhooks").checked;
+  const playhead = document.getElementById("timelinePlayhead");
+
+  playBtn.style.display = "none";
+  stopBtn.style.display = "inline-block";
+
+  const lapTimes = currentDetailRace.lapTimes.map((t) => t / 1000); // Convert to seconds
   playbackTotalTime = lapTimes.reduce((sum, t) => sum + t, 0);
   playbackStartTime = Date.now();
-  
+
   // Show and start playhead animation
   if (playhead) {
-    playhead.classList.add('active');
-    playhead.style.left = '0%';
+    playhead.classList.add("active");
+    playhead.style.left = "0%";
   }
-  
+
   // Update playhead position smoothly
   playbackInterval = setInterval(() => {
     const elapsed = (Date.now() - playbackStartTime) / 1000; // seconds
@@ -2196,215 +2230,214 @@ function playbackRace() {
       clearInterval(playbackInterval);
     }
   }, 50); // Update every 50ms for smooth animation
-  
+
   let cumulativeTime = 0;
-  
+
   // Broadcast race start
   if (enableWebhooks) {
-    fetch('/timer/playbackStart', {
-      method: 'POST',
+    fetch("/timer/playbackStart", {
+      method: "POST",
       headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
+        Accept: "application/json",
+        "Content-Type": "application/json",
       },
-      body: JSON.stringify({ raceData: currentDetailRace })
-    }).catch(err => console.error('Playback start failed:', err));
+      body: JSON.stringify({ raceData: currentDetailRace }),
+    }).catch((err) => console.error("Playback start failed:", err));
   }
-  
+
   // Schedule each lap event
   lapTimes.forEach((lapTime, index) => {
     cumulativeTime += lapTime;
     const delay = cumulativeTime * 1000; // Convert to milliseconds
-    
+
     const timeout = setTimeout(() => {
       // Broadcast lap event
       const lapTimeMs = Math.round(lapTime * 1000);
-      
+
       if (enableWebhooks) {
-        fetch('/timer/playbackLap', {
-          method: 'POST',
+        fetch("/timer/playbackLap", {
+          method: "POST",
           headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
+            Accept: "application/json",
+            "Content-Type": "application/json",
           },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             lapTime: lapTimeMs,
             lapNumber: index,
-            isGate1: index === 0
-          })
-        }).catch(err => console.error('Playback lap failed:', err));
+            isGate1: index === 0,
+          }),
+        }).catch((err) => console.error("Playback lap failed:", err));
       }
-      
+
       // Highlight the corresponding timeline flag
       highlightTimelineEvent(index);
-      
-      console.log(`Playback: ${index === 0 ? 'Gate 1' : 'Lap ' + index} - ${lapTime.toFixed(2)}s`);
+
+      console.log(`Playback: ${index === 0 ? "Gate 1" : "Lap " + index} - ${lapTime.toFixed(2)}s`);
     }, delay);
-    
+
     playbackTimeouts.push(timeout);
   });
-  
+
   // Schedule race stop
   const totalTime = lapTimes.reduce((sum, t) => sum + t, 0);
   const stopTimeout = setTimeout(() => {
     if (enableWebhooks) {
-      fetch('/timer/playbackStop', {
-        method: 'POST',
+      fetch("/timer/playbackStop", {
+        method: "POST",
         headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        }
-      }).catch(err => console.error('Playback stop failed:', err));
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+      }).catch((err) => console.error("Playback stop failed:", err));
     }
-    
-    console.log('Playback: Race complete');
+
+    console.log("Playback: Race complete");
     stopPlayback();
   }, totalTime * 1000);
-  
+
   playbackTimeouts.push(stopTimeout);
 }
 
 function stopPlayback() {
-  const playBtn = document.getElementById('playbackBtn');
-  const stopBtn = document.getElementById('stopPlaybackBtn');
-  const playhead = document.getElementById('timelinePlayhead');
-  
-  if (playBtn) playBtn.style.display = 'inline-block';
-  if (stopBtn) stopBtn.style.display = 'none';
-  
+  const playBtn = document.getElementById("playbackBtn");
+  const stopBtn = document.getElementById("stopPlaybackBtn");
+  const playhead = document.getElementById("timelinePlayhead");
+
+  if (playBtn) playBtn.style.display = "inline-block";
+  if (stopBtn) stopBtn.style.display = "none";
+
   // Hide playhead
   if (playhead) {
-    playhead.classList.remove('active');
+    playhead.classList.remove("active");
   }
-  
+
   // Clear playhead animation interval
   if (playbackInterval) {
     clearInterval(playbackInterval);
     playbackInterval = null;
   }
-  
+
   // Clear all scheduled timeouts
-  playbackTimeouts.forEach(timeout => clearTimeout(timeout));
+  playbackTimeouts.forEach((timeout) => clearTimeout(timeout));
   playbackTimeouts = [];
-  
+
   // Remove timeline highlights
-  document.querySelectorAll('.timeline-event').forEach(event => {
-    event.style.transform = event.style.transform.replace(' scale(1.3)', '');
+  document.querySelectorAll(".timeline-event").forEach((event) => {
+    event.style.transform = event.style.transform.replace(" scale(1.3)", "");
   });
 }
 
 function highlightTimelineEvent(index) {
-  const events = document.querySelectorAll('.timeline-event');
+  const events = document.querySelectorAll(".timeline-event");
   // index + 1 to skip the "Race Start" event
   if (events[index + 1]) {
-    events[index + 1].style.transform = 'translate(-50%, -50%) scale(1.3)';
+    events[index + 1].style.transform = "translate(-50%, -50%) scale(1.3)";
     setTimeout(() => {
-      events[index + 1].style.transform = 'translate(-50%, -50%)';
+      events[index + 1].style.transform = "translate(-50%, -50%)";
     }, 500);
   }
 }
 
 function switchDetailMode(mode) {
-  const tabs = document.querySelectorAll('#raceDetails .analysis-tab');
-  tabs.forEach(tab => tab.classList.remove('active'));
-  
-  if (mode === 'history') {
-    tabs[0].classList.add('active');
+  const tabs = document.querySelectorAll("#raceDetails .analysis-tab");
+  tabs.forEach((tab) => tab.classList.remove("active"));
+
+  if (mode === "history") {
+    tabs[0].classList.add("active");
     renderDetailHistory();
-  } else if (mode === 'fastestRound') {
-    tabs[1].classList.add('active');
+  } else if (mode === "fastestRound") {
+    tabs[1].classList.add("active");
     renderDetailFastestRound();
   }
 }
 
 function renderDetailHistory() {
   if (!currentDetailRace) return;
-  
-  const lapTimes = currentDetailRace.lapTimes.map(t => t / 1000);
+
+  const lapTimes = currentDetailRace.lapTimes.map((t) => t / 1000);
   const displayLaps = lapTimes.slice(-10);
   const maxTime = Math.max(...displayLaps);
-  
+
   // Get track distance if available
   const trackDistance = currentDetailRace.totalDistance || 0;
   const hasTrackData = trackDistance > 0 && currentDetailRace.lapTimes.length > 0;
   const perLapDistance = hasTrackData ? trackDistance / currentDetailRace.lapTimes.length : 0;
-  
+
   // Calculate total race time
   const totalTime = lapTimes.reduce((sum, t) => sum + t, 0);
-  
+
   let html = '<div class="analysis-bars">';
   displayLaps.forEach((time, index) => {
     const actualIndex = lapTimes.length - displayLaps.length + index;
     let label;
-    
+
     // First entry is Gate 1 (start), not a lap
     if (actualIndex === 0) {
-      label = 'Gate 1';
+      label = i18n.t("race.gate1");
     } else {
-      label = `Lap ${actualIndex}`;
+      label = i18n.t("race.lap_counter", { n: actualIndex });
     }
-    
+
     // Add distance info if available: "Lap x - y/z m"
     if (hasTrackData && actualIndex > 0) {
-      label = `${time.toFixed(2)}s\n${label} - ${perLapDistance.toFixed(0)}m`;
+      label = `${time.toFixed(2)}${i18n.t("race.seconds_short")}\n${label} - ${perLapDistance.toFixed(0)}m`;
     } else if (hasTrackData && actualIndex === 0) {
-      label = `${time.toFixed(2)}s\nGate 1 (Start)`;
+      label = `${time.toFixed(2)}${i18n.t("race.seconds_short")}\n${i18n.t("history.gate1_start")}`;
     } else if (actualIndex === 0) {
-      label = 'Gate 1';
+      label = i18n.t("race.gate1");
     }
-    
-    const displayTime = hasTrackData ? '' : `${time.toFixed(2)}s`; // Don't show time in bar if it's in label
+
+    const displayTime = hasTrackData ? "" : `${time.toFixed(2)}${i18n.t("race.seconds_short")}`; // Don't show time in bar if it's in label
     html += createBarItemWithColor(label, time, maxTime, displayTime, index);
   });
-  html += '</div>';
-  html += `<p style="text-align: center; margin-top: 16px; font-weight: bold; color: var(--primary-color);">Total Race Time: ${totalTime.toFixed(2)}s</p>`;
-  
-  document.getElementById('detailContent').innerHTML = html;
+  html += "</div>";
+  html += `<p style="text-align: center; margin-top: 16px; font-weight: bold; color: var(--primary-color);">${i18n.t("history.total_race_time", { n: totalTime.toFixed(2) })}</p>`;
+
+  document.getElementById("detailContent").innerHTML = html;
 }
 
 function renderDetailFastestRound() {
   if (!currentDetailRace) return;
-  
-  const lapTimes = currentDetailRace.lapTimes.map(t => t / 1000);
-  
+
+  const lapTimes = currentDetailRace.lapTimes.map((t) => t / 1000);
+
   if (lapTimes.length < 3) {
-    document.getElementById('detailContent').innerHTML = 
-      '<p class="no-data">Not enough laps for fastest round</p>';
+    document.getElementById("detailContent").innerHTML = `<p class="no-data">${i18n.t("analysis.not_enough_laps")}</p>`;
     return;
   }
-  
+
   let bestTime = Infinity;
   let bestStartIndex = 0;
-  
+
   for (let i = 0; i <= lapTimes.length - 3; i++) {
-    const sum = lapTimes[i] + lapTimes[i+1] + lapTimes[i+2];
+    const sum = lapTimes[i] + lapTimes[i + 1] + lapTimes[i + 2];
     if (sum < bestTime) {
       bestTime = sum;
       bestStartIndex = i;
     }
   }
-  
+
   const lap1 = lapTimes[bestStartIndex];
   const lap2 = lapTimes[bestStartIndex + 1];
   const lap3 = lapTimes[bestStartIndex + 2];
   const maxTime = Math.max(lap1, lap2, lap3);
-  
+
   let html = '<div class="analysis-bars">';
-  html += createBarItemWithColor(`Lap ${bestStartIndex + 1}`, lap1, maxTime, `${lap1.toFixed(2)}s`, 0);
-  html += createBarItemWithColor(`Lap ${bestStartIndex + 2}`, lap2, maxTime, `${lap2.toFixed(2)}s`, 1);
-  html += createBarItemWithColor(`Lap ${bestStartIndex + 3}`, lap3, maxTime, `${lap3.toFixed(2)}s`, 2);
-  html += '</div>';
-  html += `<p style="text-align: center; margin-top: 16px; font-weight: bold; color: var(--primary-color);">Total: ${bestTime.toFixed(2)}s</p>`;
-  
-  document.getElementById('detailContent').innerHTML = html;
+  html += createBarItemWithColor(i18n.t("race.lap_counter", { n: bestStartIndex + 1 }), lap1, maxTime, `${lap1.toFixed(2)}${i18n.t("race.seconds_short")}`, 0);
+  html += createBarItemWithColor(i18n.t("race.lap_counter", { n: bestStartIndex + 2 }), lap2, maxTime, `${lap2.toFixed(2)}${i18n.t("race.seconds_short")}`, 1);
+  html += createBarItemWithColor(i18n.t("race.lap_counter", { n: bestStartIndex + 3 }), lap3, maxTime, `${lap3.toFixed(2)}${i18n.t("race.seconds_short")}`, 2);
+  html += "</div>";
+  html += `<p style="text-align: center; margin-top: 16px; font-weight: bold; color: var(--primary-color);">${i18n.t("analysis.total", { n: bestTime.toFixed(2) })}</p>`;
+
+  document.getElementById("detailContent").innerHTML = html;
 }
 
 function downloadRaces() {
-  window.open('/races/download', '_blank');
+  window.open("/races/download", "_blank");
 }
 
 function downloadSingleRace(timestamp) {
-  window.open('/races/downloadOne?timestamp=' + timestamp, '_blank');
+  window.open("/races/downloadOne?timestamp=" + timestamp, "_blank");
 }
 
 let editingRaceIndex = null;
@@ -2412,27 +2445,27 @@ let editingRaceIndex = null;
 function openEditModal(index) {
   editingRaceIndex = index;
   const race = raceHistoryData[index];
-  
-  document.getElementById('raceName').value = race.name || '';
-  document.getElementById('raceTag').value = race.tag || '';
-  document.getElementById('raceDistance').value = race.totalDistance || 0;
-  
+
+  document.getElementById("raceName").value = race.name || "";
+  document.getElementById("raceTag").value = race.tag || "";
+  document.getElementById("raceDistance").value = race.totalDistance || 0;
+
   // Populate lap times for marshalling mode
   renderEditLapsList(race.lapTimes);
-  
-  document.getElementById('editRaceModal').style.display = 'flex';
+
+  document.getElementById("editRaceModal").style.display = "flex";
 }
 
 function renderEditLapsList(lapTimes) {
-  const container = document.getElementById('editLapsList');
-  let html = '';
-  
+  const container = document.getElementById("editLapsList");
+  let html = "";
+
   lapTimes.forEach((lapTime, index) => {
     const lapSeconds = (lapTime / 1000).toFixed(3);
-    const lapLabel = index === 0 ? 'Gate 1' : `Lap ${index}`;
+    const lapLabel = index === 0 ? i18n.t("race.gate1") : i18n.t("race.lap_counter", { n: index });
     html += `
       <div style="display: flex; align-items: center; gap: 8px; padding: 8px; background-color: var(--bg-secondary); border-radius: 4px;">
-        <span style="min-width: 60px; font-weight: ${index === 0 ? 'bold' : 'normal'}; color: ${index === 0 ? 'var(--accent-color)' : 'var(--primary-color)'}">${lapLabel}</span>
+        <span style="min-width: 60px; font-weight: ${index === 0 ? "bold" : "normal"}; color: ${index === 0 ? "var(--accent-color)" : "var(--primary-color)"}">${lapLabel}</span>
         <input type="number" step="0.001" min="0" value="${lapSeconds}" 
                data-lap-index="${index}" 
                style="flex: 1; padding: 6px; background-color: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 4px; color: var(--primary-color);" 
@@ -2444,20 +2477,20 @@ function renderEditLapsList(lapTimes) {
       </div>
     `;
   });
-  
+
   container.innerHTML = html;
 }
 
 function deleteLapFromEdit(index) {
   if (editingRaceIndex === null) return;
   const race = raceHistoryData[editingRaceIndex];
-  
+
   if (race.lapTimes.length <= 1) {
-    alert('Cannot delete the last lap. Delete the entire race instead.');
+    alert(i18n.t("history.edit_lap_last_error"));
     return;
   }
-  
-  if (confirm('Delete this lap?')) {
+
+  if (confirm(i18n.t("history.edit_lap_delete_confirm"))) {
     race.lapTimes.splice(index, 1);
     renderEditLapsList(race.lapTimes);
   }
@@ -2466,7 +2499,7 @@ function deleteLapFromEdit(index) {
 function addNewLapToEdit() {
   if (editingRaceIndex === null) return;
   const race = raceHistoryData[editingRaceIndex];
-  
+
   // Add a new lap with a default value (average of existing laps)
   let defaultValue = 0;
   if (race.lapTimes.length > 0) {
@@ -2475,274 +2508,275 @@ function addNewLapToEdit() {
   } else {
     defaultValue = 10000; // 10 seconds default
   }
-  
+
   race.lapTimes.push(defaultValue);
   renderEditLapsList(race.lapTimes);
-  
+
   // Scroll to bottom to show the new lap
-  const container = document.getElementById('editLapsList');
+  const container = document.getElementById("editLapsList");
   container.scrollTop = container.scrollHeight;
 }
 
 function closeEditModal() {
-  document.getElementById('editRaceModal').style.display = 'none';
+  document.getElementById("editRaceModal").style.display = "none";
   editingRaceIndex = null;
 }
 
 function closeEditModalOnBackdrop(event) {
   // Only close if clicking the backdrop (not the modal content)
-  if (event.target.id === 'editRaceModal') {
+  if (event.target.id === "editRaceModal") {
     closeEditModal();
   }
 }
 
 function saveRaceEdit() {
   if (editingRaceIndex === null) return;
-  
+
   const race = raceHistoryData[editingRaceIndex];
-  const name = document.getElementById('raceName').value;
-  const tag = document.getElementById('raceTag').value;
-  const distance = parseFloat(document.getElementById('raceDistance').value) || 0;
-  
+  const name = document.getElementById("raceName").value;
+  const tag = document.getElementById("raceTag").value;
+  const distance = parseFloat(document.getElementById("raceDistance").value) || 0;
+
   // Collect updated lap times from inputs
   const lapInputs = document.querySelectorAll('#editLapsList input[type="number"]');
   const updatedLapTimes = [];
   let hasError = false;
-  
-  lapInputs.forEach(input => {
+
+  lapInputs.forEach((input) => {
     const value = parseFloat(input.value);
     if (isNaN(value) || value <= 0) {
       hasError = true;
-      input.style.borderColor = '#e74c3c';
+      input.style.borderColor = "#e74c3c";
     } else {
-      input.style.borderColor = '';
+      input.style.borderColor = "";
       // Convert seconds to milliseconds
       updatedLapTimes.push(Math.round(value * 1000));
     }
   });
-  
+
   if (hasError) {
-    alert('Please enter valid lap times (positive numbers)');
+    alert(i18n.t("messages.race_edit_invalid_laps"));
     return;
   }
-  
+
   if (updatedLapTimes.length === 0) {
-    alert('Cannot save race with no laps. Delete the race instead.');
+    alert(i18n.t("messages.race_edit_no_laps"));
     return;
   }
-  
+
   // First update metadata (name/tag/distance)
   const formData = new URLSearchParams();
-  formData.append('timestamp', race.timestamp);
-  formData.append('name', name);
-  formData.append('tag', tag);
-  formData.append('totalDistance', distance);
-  
-  fetch('/races/update', {
-    method: 'POST',
+  formData.append("timestamp", race.timestamp);
+  formData.append("name", name);
+  formData.append("tag", tag);
+  formData.append("totalDistance", distance);
+
+  fetch("/races/update", {
+    method: "POST",
     headers: {
-      'Content-Type': 'application/x-www-form-urlencoded'
+      "Content-Type": "application/x-www-form-urlencoded",
     },
-    body: formData
+    body: formData,
   })
-  .then(response => response.json())
-  .then(data => {
-    console.log('Race metadata updated:', data);
-    
-    // Then update lap times if they changed
-    return fetch('/races/updateLaps', {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        timestamp: race.timestamp,
-        lapTimes: updatedLapTimes
-      })
+    .then((response) => response.json())
+    .then((data) => {
+      console.log("Race metadata updated:", data);
+
+      // Then update lap times if they changed
+      return fetch("/races/updateLaps", {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          timestamp: race.timestamp,
+          lapTimes: updatedLapTimes,
+        }),
+      });
+    })
+    .then((response) => response.json())
+    .then((data) => {
+      console.log("Race laps updated:", data);
+      loadRaceHistory();
+      closeEditModal();
+    })
+    .catch((error) => {
+      console.error("Error updating race:", error);
+      alert(i18n.t("messages.race_update_error"));
     });
-  })
-  .then(response => response.json())
-  .then(data => {
-    console.log('Race laps updated:', data);
-    loadRaceHistory();
-    closeEditModal();
-  })
-  .catch(error => {
-    console.error('Error updating race:', error);
-    alert('Error updating race');
-  });
 }
 
 function importRaces(input) {
   const file = input.files[0];
   if (!file) return;
-  
+
   const reader = new FileReader();
-  reader.onload = function(e) {
+  reader.onload = function (e) {
     try {
       const json = JSON.parse(e.target.result);
-      
-      fetch('/races/upload', {
-        method: 'POST',
+
+      fetch("/races/upload", {
+        method: "POST",
         headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
+          Accept: "application/json",
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify(json)
+        body: JSON.stringify(json),
       })
-      .then(response => response.json())
-      .then(data => {
-        console.log('Races imported:', data);
-        loadRaceHistory();
-        alert('Races imported successfully!');
-      })
-      .catch(error => {
-        console.error('Error importing races:', error);
-        alert('Error importing races');
-      });
+        .then((response) => response.json())
+        .then((data) => {
+          console.log("Races imported:", data);
+          loadRaceHistory();
+          alert(i18n.t("messages.race_import_success"));
+        })
+        .catch((error) => {
+          console.error("Error importing races:", error);
+          alert(i18n.t("messages.race_import_error"));
+        });
     } catch (error) {
-      console.error('Error parsing JSON:', error);
-      alert('Invalid JSON file');
+      console.error("Error parsing JSON:", error);
+      alert(i18n.t("messages.race_invalid_json"));
     }
   };
   reader.readAsText(file);
-  input.value = ''; // Reset file input
+  input.value = ""; // Reset file input
 }
 
 function deleteRace(timestamp) {
-  if (!confirm('Delete this race?')) return;
-  
+  if (!confirm(i18n.t("history.delete_confirm"))) return;
+
   const formData = new URLSearchParams();
-  formData.append('timestamp', timestamp);
-  
-  fetch('/races/delete', {
-    method: 'POST',
+  formData.append("timestamp", timestamp);
+
+  fetch("/races/delete", {
+    method: "POST",
     headers: {
-      'Content-Type': 'application/x-www-form-urlencoded'
+      "Content-Type": "application/x-www-form-urlencoded",
     },
-    body: formData
+    body: formData,
   })
-  .then(response => response.json())
-  .then(data => {
-    console.log('Race deleted:', data);
-    loadRaceHistory();
-    if (currentDetailRace && currentDetailRace.timestamp === timestamp) {
-      closeRaceDetails();
-    }
-  })
-  .catch(error => console.error('Error deleting race:', error));
+    .then((response) => response.json())
+    .then((data) => {
+      console.log("Race deleted:", data);
+      loadRaceHistory();
+      if (currentDetailRace && currentDetailRace.timestamp === timestamp) {
+        closeRaceDetails();
+      }
+    })
+    .catch((error) => console.error("Error deleting race:", error));
 }
 
 function clearAllRaces() {
-  if (!confirm('Are you sure you want to clear all race history? This cannot be undone.')) return;
-  
-  fetch('/races/clear', {
-    method: 'POST',
+  if (!confirm(i18n.t("messages.confirm_clear_history"))) return;
+
+  fetch("/races/clear", {
+    method: "POST",
     headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json'
-    }
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
   })
-  .then(response => response.json())
-  .then(data => {
-    console.log('All races cleared:', data);
-    loadRaceHistory();
-    closeRaceDetails();
-  })
-  .catch(error => console.error('Error clearing races:', error));
+    .then((response) => response.json())
+    .then((data) => {
+      console.log("All races cleared:", data);
+      loadRaceHistory();
+      closeRaceDetails();
+    })
+    .catch((error) => console.error("Error clearing races:", error));
 }
 
 // OSD Overlay Function
 function openOSD() {
-  const osdUrl = window.location.origin + '/osd.html';
-  
+  const osdUrl = window.location.origin + "/osd.html";
+
   // Open OSD in new tab
-  window.open(osdUrl, '_blank');
-  
+  window.open(osdUrl, "_blank");
+
   // Copy URL to clipboard
-  navigator.clipboard.writeText(osdUrl)
+  navigator.clipboard
+    .writeText(osdUrl)
     .then(() => {
       // Show temporary success message
       const button = event.target;
       const originalText = button.textContent;
-      button.textContent = '✓ URL Copied!';
-      button.style.backgroundColor = '#27ae60';
-      
+      button.textContent = i18n.t("messages.url_copied");
+      button.style.backgroundColor = "#27ae60";
+
       setTimeout(() => {
         button.textContent = originalText;
-        button.style.backgroundColor = '';
+        button.style.backgroundColor = "";
       }, 2000);
     })
-    .catch(err => {
-      console.error('Failed to copy URL:', err);
-      alert('OSD opened, but failed to copy URL. URL: ' + osdUrl);
+    .catch((err) => {
+      console.error("Failed to copy URL:", err);
+      alert(i18n.t("messages.osd_opened_copy_fail", { url: osdUrl }));
     });
 }
 
 // Config Download/Import Functions
 function downloadConfig() {
-  fetch('/config')
-    .then(response => response.json())
-    .then(config => {
+  fetch("/config")
+    .then((response) => response.json())
+    .then((config) => {
       // Add all client-side settings
       const fullConfig = {
         ...config,
         // Theme
-        theme: localStorage.getItem('theme') || 'oceanic',
+        theme: localStorage.getItem("theme") || "oceanic",
         // Audio settings
         audioEnabled: audioEnabled,
-        lapFormat: localStorage.getItem('lapFormat') || 'full',
-        selectedVoice: localStorage.getItem('selectedVoice') || 'default',
-        ttsEngine: localStorage.getItem('ttsEngine') || 'piper',
+        lapFormat: localStorage.getItem("lapFormat") || "full",
+        selectedVoice: localStorage.getItem("selectedVoice") || "default",
+        ttsEngine: localStorage.getItem("ttsEngine") || "piper",
         // Pilot frontend settings
-        pilotCallsign: localStorage.getItem('pilotCallsign') || '',
-        pilotPhonetic: localStorage.getItem('pilotPhonetic') || '',
-        pilotColor: localStorage.getItem('pilotColor') || '#0080FF',
+        pilotCallsign: localStorage.getItem("pilotCallsign") || "",
+        pilotPhonetic: localStorage.getItem("pilotPhonetic") || "",
+        pilotColor: localStorage.getItem("pilotColor") || "#0080FF",
         // LED settings (get from current UI state)
-        ledPreset: parseInt(document.getElementById('ledPreset')?.value || 2),
-        ledSolidColor: document.getElementById('ledSolidColor')?.value || '#FF00FF',
-        ledFadeColor: document.getElementById('ledFadeColor')?.value || '#0080FF',
-        ledStrobeColor: document.getElementById('ledStrobeColor')?.value || '#FFFFFF',
-        ledSpeed: parseInt(document.getElementById('ledSpeed')?.value || 5),
-        ledManualOverride: document.getElementById('ledManualOverride')?.checked || false,
+        ledPreset: parseInt(document.getElementById("ledPreset")?.value || 2),
+        ledSolidColor: document.getElementById("ledSolidColor")?.value || "#FF00FF",
+        ledFadeColor: document.getElementById("ledFadeColor")?.value || "#0080FF",
+        ledStrobeColor: document.getElementById("ledStrobeColor")?.value || "#FFFFFF",
+        ledSpeed: parseInt(document.getElementById("ledSpeed")?.value || 5),
+        ledManualOverride: document.getElementById("ledManualOverride")?.checked || false,
         // Battery monitoring
-        batteryMonitoring: document.getElementById('batteryMonitorToggle')?.checked !== false,
-        timestamp: new Date().toISOString()
+        batteryMonitoring: document.getElementById("batteryMonitorToggle")?.checked !== false,
+        timestamp: new Date().toISOString(),
       };
-      
+
       const dataStr = JSON.stringify(fullConfig, null, 2);
-      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const dataBlob = new Blob([dataStr], { type: "application/json" });
       const url = URL.createObjectURL(dataBlob);
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
-      link.download = `fpvgate-config-${new Date().toISOString().slice(0,10)}.json`;
+      link.download = `fpvgate-config-${new Date().toISOString().slice(0, 10)}.json`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     })
-    .catch(error => {
-      console.error('Error downloading config:', error);
-      alert('Error downloading configuration');
+    .catch((error) => {
+      console.error("Error downloading config:", error);
+      alert(i18n.t("messages.config_download_error"));
     });
 }
 
 function importConfig(input) {
   const file = input.files[0];
   if (!file) return;
-  
+
   const reader = new FileReader();
-  reader.onload = function(e) {
+  reader.onload = function (e) {
     try {
       const config = JSON.parse(e.target.result);
-      
+
       // Apply backend config
-      fetch('/config', {
-        method: 'POST',
+      fetch("/config", {
+        method: "POST",
         headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
+          Accept: "application/json",
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           freq: config.freq,
@@ -2753,9 +2787,9 @@ function importConfig(input) {
           enterRssi: config.enterRssi,
           exitRssi: config.exitRssi,
           maxLaps: config.maxLaps,
-          name: config.name || '',
-          ssid: config.ssid || '',
-          pwd: config.pwd || '',
+          name: config.name || "",
+          ssid: config.ssid || "",
+          pwd: config.pwd || "",
           // LED settings
           ledMode: config.ledMode,
           ledBrightness: config.ledBrightness,
@@ -2777,84 +2811,84 @@ function importConfig(input) {
           webhookRaceStop: config.webhookRaceStop,
           webhookLap: config.webhookLap,
           // Operation mode
-          opMode: config.opMode
+          opMode: config.opMode,
+        }),
+      })
+        .then((response) => response.json())
+        .then((data) => {
+          console.log("Config imported:", data);
+
+          // Apply all client-side settings
+          // Theme
+          if (config.theme) {
+            localStorage.setItem("theme", config.theme);
+          }
+          // Audio settings
+          if (config.lapFormat) {
+            localStorage.setItem("lapFormat", config.lapFormat);
+          }
+          if (config.selectedVoice) {
+            localStorage.setItem("selectedVoice", config.selectedVoice);
+          }
+          if (config.ttsEngine) {
+            localStorage.setItem("ttsEngine", config.ttsEngine);
+          }
+          // Pilot frontend settings
+          if (config.pilotCallsign !== undefined) {
+            localStorage.setItem("pilotCallsign", config.pilotCallsign);
+          }
+          if (config.pilotPhonetic !== undefined) {
+            localStorage.setItem("pilotPhonetic", config.pilotPhonetic);
+          }
+          if (config.pilotColor) {
+            localStorage.setItem("pilotColor", config.pilotColor);
+          }
+          // LED settings
+          if (config.ledPreset !== undefined) {
+            const ledPresetSelect = document.getElementById("ledPreset");
+            if (ledPresetSelect) ledPresetSelect.value = config.ledPreset;
+          }
+          if (config.ledSolidColor) {
+            const ledSolidColor = document.getElementById("ledSolidColor");
+            if (ledSolidColor) ledSolidColor.value = config.ledSolidColor;
+          }
+          if (config.ledFadeColor) {
+            const ledFadeColor = document.getElementById("ledFadeColor");
+            if (ledFadeColor) ledFadeColor.value = config.ledFadeColor;
+          }
+          if (config.ledStrobeColor) {
+            const ledStrobeColor = document.getElementById("ledStrobeColor");
+            if (ledStrobeColor) ledStrobeColor.value = config.ledStrobeColor;
+          }
+          if (config.ledSpeed !== undefined) {
+            const ledSpeed = document.getElementById("ledSpeed");
+            if (ledSpeed) ledSpeed.value = config.ledSpeed;
+          }
+          if (config.ledManualOverride !== undefined) {
+            const ledManualOverride = document.getElementById("ledManualOverride");
+            if (ledManualOverride) ledManualOverride.checked = config.ledManualOverride;
+          }
+          // Battery monitoring
+          if (config.batteryMonitoring !== undefined) {
+            const batteryToggle = document.getElementById("batteryMonitorToggle");
+            if (batteryToggle) batteryToggle.checked = config.batteryMonitoring;
+          }
+
+          alert(i18n.t("messages.config_imported"));
+          // Reload config to update UI
+          setTimeout(() => location.reload(), 500);
         })
-      })
-      .then(response => response.json())
-      .then(data => {
-        console.log('Config imported:', data);
-        
-        // Apply all client-side settings
-        // Theme
-        if (config.theme) {
-          localStorage.setItem('theme', config.theme);
-        }
-        // Audio settings
-        if (config.lapFormat) {
-          localStorage.setItem('lapFormat', config.lapFormat);
-        }
-        if (config.selectedVoice) {
-          localStorage.setItem('selectedVoice', config.selectedVoice);
-        }
-        if (config.ttsEngine) {
-          localStorage.setItem('ttsEngine', config.ttsEngine);
-        }
-        // Pilot frontend settings
-        if (config.pilotCallsign !== undefined) {
-          localStorage.setItem('pilotCallsign', config.pilotCallsign);
-        }
-        if (config.pilotPhonetic !== undefined) {
-          localStorage.setItem('pilotPhonetic', config.pilotPhonetic);
-        }
-        if (config.pilotColor) {
-          localStorage.setItem('pilotColor', config.pilotColor);
-        }
-        // LED settings
-        if (config.ledPreset !== undefined) {
-          const ledPresetSelect = document.getElementById('ledPreset');
-          if (ledPresetSelect) ledPresetSelect.value = config.ledPreset;
-        }
-        if (config.ledSolidColor) {
-          const ledSolidColor = document.getElementById('ledSolidColor');
-          if (ledSolidColor) ledSolidColor.value = config.ledSolidColor;
-        }
-        if (config.ledFadeColor) {
-          const ledFadeColor = document.getElementById('ledFadeColor');
-          if (ledFadeColor) ledFadeColor.value = config.ledFadeColor;
-        }
-        if (config.ledStrobeColor) {
-          const ledStrobeColor = document.getElementById('ledStrobeColor');
-          if (ledStrobeColor) ledStrobeColor.value = config.ledStrobeColor;
-        }
-        if (config.ledSpeed !== undefined) {
-          const ledSpeed = document.getElementById('ledSpeed');
-          if (ledSpeed) ledSpeed.value = config.ledSpeed;
-        }
-        if (config.ledManualOverride !== undefined) {
-          const ledManualOverride = document.getElementById('ledManualOverride');
-          if (ledManualOverride) ledManualOverride.checked = config.ledManualOverride;
-        }
-        // Battery monitoring
-        if (config.batteryMonitoring !== undefined) {
-          const batteryToggle = document.getElementById('batteryMonitorToggle');
-          if (batteryToggle) batteryToggle.checked = config.batteryMonitoring;
-        }
-        
-        alert('Configuration imported successfully! Page will reload.');
-        // Reload config to update UI
-        setTimeout(() => location.reload(), 500);
-      })
-      .catch(error => {
-        console.error('Error importing config:', error);
-        alert('Error importing configuration');
-      });
+        .catch((error) => {
+          console.error("Error importing config:", error);
+          alert(i18n.t("messages.config_import_error"));
+        });
     } catch (error) {
-      console.error('Error parsing config JSON:', error);
-      alert('Invalid configuration file');
+      console.error("Error parsing config JSON:", error);
+      alert(i18n.t("messages.config_invalid"));
     }
   };
   reader.readAsText(file);
-  input.value = ''; // Reset file input
+  input.value = ""; // Reset file input
 }
 
 // Calibration Wizard
@@ -2865,7 +2899,7 @@ let wizardState = {
   currentLap: 1,
   chart: null,
   calculatedEnter: 0,
-  calculatedExit: 0
+  calculatedExit: 0,
 };
 
 function startCalibrationWizard() {
@@ -2877,101 +2911,101 @@ function startCalibrationWizard() {
     currentLap: 1,
     chart: null,
     calculatedEnter: 0,
-    calculatedExit: 0
+    calculatedExit: 0,
   };
-  
+
   // Show modal and recording screen
-  document.getElementById('calibrationWizardModal').style.display = 'flex';
-  document.getElementById('wizardRecording').style.display = 'block';
-  document.getElementById('wizardMarking').style.display = 'none';
-  document.getElementById('wizardResults').style.display = 'none';
-  
+  document.getElementById("calibrationWizardModal").style.display = "flex";
+  document.getElementById("wizardRecording").style.display = "block";
+  document.getElementById("wizardMarking").style.display = "none";
+  document.getElementById("wizardResults").style.display = "none";
+
   // Start recording
-  fetch('/calibration/start', { method: 'POST' })
-    .then(response => response.json())
-    .then(data => {
-      console.log('Calibration wizard started:', data);
+  fetch("/calibration/start", { method: "POST" })
+    .then((response) => response.json())
+    .then((data) => {
+      console.log("Calibration wizard started:", data);
       wizardState.recording = true;
       wizardRecordingLoop();
     })
-    .catch(error => {
-      console.error('Error starting calibration wizard:', error);
-      alert('Error starting calibration wizard');
+    .catch((error) => {
+      console.error("Error starting calibration wizard:", error);
+      alert(i18n.t("messages.calib_wizard_error"));
       closeCalibrationWizard();
     });
 }
 
 function wizardRecordingLoop() {
   if (!wizardState.recording) return;
-  
+
   // Fetch current sample count
-  fetch('/calibration/data')
-    .then(response => response.json())
-    .then(data => {
-      document.getElementById('wizardSampleCount').textContent = `Samples: ${data.count}`;
+  fetch("/calibration/data")
+    .then((response) => response.json())
+    .then((data) => {
+      document.getElementById("wizardSampleCount").textContent = `Samples: ${data.count}`;
       if (wizardState.recording) {
         setTimeout(wizardRecordingLoop, 200);
       }
     })
-    .catch(error => {
-      console.error('Error fetching calibration data:', error);
+    .catch((error) => {
+      console.error("Error fetching calibration data:", error);
     });
 }
 
 function stopCalibrationWizard() {
   wizardState.recording = false;
-  
-  fetch('/calibration/stop', { method: 'POST' })
-    .then(response => response.json())
+
+  fetch("/calibration/stop", { method: "POST" })
+    .then((response) => response.json())
     .then(() => {
       // Fetch recorded data
-      return fetch('/calibration/data');
+      return fetch("/calibration/data");
     })
-    .then(response => response.json())
-    .then(data => {
-      console.log('Calibration data received:', data.count, 'samples');
+    .then((response) => response.json())
+    .then((data) => {
+      console.log("Calibration data received:", data.count, "samples");
       wizardState.data = data.data;
-      
+
       if (wizardState.data.length < 10) {
-        alert('Not enough data recorded. Please try again with at least 3 clear gate passes.');
+        alert(i18n.t("messages.calib_not_enough_data"));
         closeCalibrationWizard();
         return;
       }
-      
+
       // Show marking screen
-      document.getElementById('wizardRecording').style.display = 'none';
-      document.getElementById('wizardMarking').style.display = 'block';
-      
+      document.getElementById("wizardRecording").style.display = "none";
+      document.getElementById("wizardMarking").style.display = "block";
+
       // Draw chart
       drawWizardChart();
     })
-    .catch(error => {
-      console.error('Error stopping calibration wizard:', error);
-      alert('Error processing calibration data');
+    .catch((error) => {
+      console.error("Error stopping calibration wizard:", error);
+      alert(i18n.t("messages.calib_process_error"));
       closeCalibrationWizard();
     });
 }
 
 function drawWizardChart() {
-  const canvas = document.getElementById('wizardChart');
-  const ctx = canvas.getContext('2d');
-  
+  const canvas = document.getElementById("wizardChart");
+  const ctx = canvas.getContext("2d");
+
   // Set canvas size
   canvas.width = canvas.offsetWidth;
   canvas.height = 400;
-  
+
   const width = canvas.width;
   const height = canvas.height;
   const padding = 40;
   const chartWidth = width - 2 * padding;
   const chartHeight = height - 2 * padding;
-  
+
   // Get RSSI values
-  const rssiValues = wizardState.data.map(d => d.rssi);
+  const rssiValues = wizardState.data.map((d) => d.rssi);
   const minRssi = Math.min(...rssiValues);
   const maxRssi = Math.max(...rssiValues);
   const rssiRange = maxRssi - minRssi;
-  
+
   // Apply visual smoothing with moving average (window size 15 for smoother appearance)
   // IMPORTANT: This is ONLY for visual display - does NOT affect actual data
   const smoothedRssi = [];
@@ -2985,29 +3019,29 @@ function drawWizardChart() {
     }
     smoothedRssi.push(sum / count);
   }
-  
+
   // Clear canvas
-  ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--bg-primary').trim();
+  ctx.fillStyle = getComputedStyle(document.body).getPropertyValue("--bg-primary").trim();
   ctx.fillRect(0, 0, width, height);
-  
+
   // Draw axes
-  ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--border-color').trim();
+  ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue("--border-color").trim();
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(padding, padding);
   ctx.lineTo(padding, height - padding);
   ctx.lineTo(width - padding, height - padding);
   ctx.stroke();
-  
+
   // Draw filled area under RSSI line (similar to SmoothieChart style)
-  ctx.fillStyle = 'rgba(0, 212, 255, 0.4)';
+  ctx.fillStyle = "rgba(0, 212, 255, 0.4)";
   ctx.beginPath();
-  
+
   for (let i = 0; i < smoothedRssi.length; i++) {
     const x = padding + (i / (smoothedRssi.length - 1)) * chartWidth;
     const rssi = smoothedRssi[i];
     const y = height - padding - ((rssi - minRssi) / rssiRange) * chartHeight;
-    
+
     if (i === 0) {
       ctx.moveTo(x, y);
     } else {
@@ -3019,17 +3053,17 @@ function drawWizardChart() {
   ctx.lineTo(padding, height - padding);
   ctx.closePath();
   ctx.fill();
-  
+
   // Draw RSSI line on top (smoothed for visual clarity)
-  ctx.strokeStyle = '#00d4ff';
+  ctx.strokeStyle = "#00d4ff";
   ctx.lineWidth = 2;
   ctx.beginPath();
-  
+
   for (let i = 0; i < smoothedRssi.length; i++) {
     const x = padding + (i / (smoothedRssi.length - 1)) * chartWidth;
     const rssi = smoothedRssi[i];
     const y = height - padding - ((rssi - minRssi) / rssiRange) * chartHeight;
-    
+
     if (i === 0) {
       ctx.moveTo(x, y);
     } else {
@@ -3037,33 +3071,33 @@ function drawWizardChart() {
     }
   }
   ctx.stroke();
-  
+
   // Draw peak markers
-  wizardState.markers.forEach(marker => {
+  wizardState.markers.forEach((marker) => {
     const x = padding + (marker.index / (wizardState.data.length - 1)) * chartWidth;
     const rssi = wizardState.data[marker.index].rssi;
     const y = height - padding - ((rssi - minRssi) / rssiRange) * chartHeight;
-    
-    ctx.fillStyle = '#ff5555';
+
+    ctx.fillStyle = "#ff5555";
     ctx.beginPath();
     ctx.arc(x, y, 8, 0, 2 * Math.PI);
     ctx.fill();
-    
+
     // Draw label
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '14px Arial';
-    ctx.textAlign = 'center';
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "14px Arial";
+    ctx.textAlign = "center";
     ctx.fillText(`Peak ${marker.lap}`, x, y - 12);
   });
-  
+
   // Add click listener
-  canvas.onclick = function(event) {
+  canvas.onclick = function (event) {
     const rect = canvas.getBoundingClientRect();
     const clickX = event.clientX - rect.left;
-    
+
     // Convert click position to data index
     const dataIndex = Math.round(((clickX - padding) / chartWidth) * (wizardState.data.length - 1));
-    
+
     if (dataIndex >= 0 && dataIndex < wizardState.data.length) {
       addWizardMarker(dataIndex);
     }
@@ -3073,97 +3107,97 @@ function drawWizardChart() {
 function addWizardMarker(index) {
   // Check if we're done
   if (wizardState.currentLap > 3) return;
-  
+
   // Add peak marker
   wizardState.markers.push({
     index: index,
-    lap: wizardState.currentLap
+    lap: wizardState.currentLap,
   });
-  
+
   // Move to next lap
   wizardState.currentLap++;
   if (wizardState.currentLap <= 3) {
     updateWizardStatus(`Mark Peak ${wizardState.currentLap}`);
   } else {
-    updateWizardStatus('All peaks marked! Click "Calculate Thresholds"');
-    document.getElementById('wizardCalculateButton').disabled = false;
+    updateWizardStatus(i18n.t("messages.calib_peaks_marked"));
+    document.getElementById("wizardCalculateButton").disabled = false;
   }
-  
+
   // Enable undo button
-  document.getElementById('wizardUndoButton').disabled = false;
-  
+  document.getElementById("wizardUndoButton").disabled = false;
+
   // Redraw chart
   drawWizardChart();
 }
 
 function undoLastMarker() {
   if (wizardState.markers.length === 0) return;
-  
+
   // Remove last marker
   const removed = wizardState.markers.pop();
-  
+
   // Update state
   wizardState.currentLap = removed.lap;
   updateWizardStatus(`Mark Peak ${wizardState.currentLap}`);
-  
+
   // Disable buttons if needed
   if (wizardState.markers.length === 0) {
-    document.getElementById('wizardUndoButton').disabled = true;
+    document.getElementById("wizardUndoButton").disabled = true;
   }
-  document.getElementById('wizardCalculateButton').disabled = true;
-  
+  document.getElementById("wizardCalculateButton").disabled = true;
+
   // Redraw chart
   drawWizardChart();
 }
 
 function updateWizardStatus(text) {
-  document.getElementById('wizardMarkingStatus').textContent = text;
+  document.getElementById("wizardMarkingStatus").textContent = text;
 }
 
 function calculateThresholds() {
   if (wizardState.markers.length !== 3) {
-    alert('Please mark all 3 peaks before calculating thresholds');
+    alert(i18n.t("messages.calib_mark_all_peaks"));
     return;
   }
-  
+
   // Get peak RSSI values
-  const peakRssiValues = wizardState.markers.map(m => wizardState.data[m.index].rssi);
-  
+  const peakRssiValues = wizardState.markers.map((m) => wizardState.data[m.index].rssi);
+
   // Calculate baseline RSSI (minimum value from all data)
-  const allRssiValues = wizardState.data.map(d => d.rssi);
+  const allRssiValues = wizardState.data.map((d) => d.rssi);
   const baselineRssi = Math.min(...allRssiValues);
-  
+
   // Calculate average peak
   const avgPeakRssi = peakRssiValues.reduce((a, b) => a + b, 0) / peakRssiValues.length;
-  
+
   // Calculate thresholds as drops from peak (more intuitive and accurate)
   // Enter: 25% down from peak (catches rising edge well into the spike)
   // Exit: 40% down from peak (catches falling edge, still above baseline)
   // This typically results in ~20-30 RSSI difference between entry and exit
   const peakRange = avgPeakRssi - baselineRssi;
-  let calculatedEnter = Math.round(avgPeakRssi - (peakRange * 0.25));
-  let calculatedExit = Math.round(avgPeakRssi - (peakRange * 0.40));
-  
+  let calculatedEnter = Math.round(avgPeakRssi - peakRange * 0.25);
+  let calculatedExit = Math.round(avgPeakRssi - peakRange * 0.4);
+
   // Ensure enter > exit with minimum gap and both above baseline
   calculatedExit = Math.max(baselineRssi + 5, calculatedExit);
   if (calculatedEnter <= calculatedExit) {
     calculatedEnter = calculatedExit + 20;
   }
-  
+
   // Clamp to valid range
   calculatedEnter = Math.max(50, Math.min(255, calculatedEnter));
   calculatedExit = Math.max(50, Math.min(255, calculatedExit));
-  
+
   // Store calculated values
   wizardState.calculatedEnter = calculatedEnter;
   wizardState.calculatedExit = calculatedExit;
-  
+
   // Show results screen
-  document.getElementById('wizardMarking').style.display = 'none';
-  document.getElementById('wizardResults').style.display = 'block';
-  
-  document.getElementById('calculatedEnterRssi').textContent = calculatedEnter;
-  document.getElementById('calculatedExitRssi').textContent = calculatedExit;
+  document.getElementById("wizardMarking").style.display = "none";
+  document.getElementById("wizardResults").style.display = "block";
+
+  document.getElementById("calculatedEnterRssi").textContent = calculatedEnter;
+  document.getElementById("calculatedExitRssi").textContent = calculatedExit;
 }
 
 function applyCalculatedThresholds() {
@@ -3172,25 +3206,25 @@ function applyCalculatedThresholds() {
   exitRssiInput.value = wizardState.calculatedExit;
   updateEnterRssi(enterRssiInput, wizardState.calculatedEnter);
   updateExitRssi(exitRssiInput, wizardState.calculatedExit);
-  
+
   // Save to backend
   saveConfig();
-  
+
   // Close wizard
   closeCalibrationWizard();
-  
+
   // Show success message
-  alert('Calibration thresholds applied! You can now fine-tune them manually if needed.');
+  alert(i18n.t("messages.calib_applied"));
 }
 
 function cancelCalibrationWizard() {
   if (wizardState.recording) {
-    fetch('/calibration/stop', { method: 'POST' })
+    fetch("/calibration/stop", { method: "POST" })
       .then(() => {
         closeCalibrationWizard();
       })
-      .catch(error => {
-        console.error('Error stopping calibration:', error);
+      .catch((error) => {
+        console.error("Error stopping calibration:", error);
         closeCalibrationWizard();
       });
   } else {
@@ -3200,81 +3234,83 @@ function cancelCalibrationWizard() {
 
 function closeCalibrationWizard() {
   wizardState.recording = false;
-  document.getElementById('calibrationWizardModal').style.display = 'none';
-  document.getElementById('wizardRecording').style.display = 'none';
-  document.getElementById('wizardMarking').style.display = 'none';
-  document.getElementById('wizardResults').style.display = 'none';
+  document.getElementById("calibrationWizardModal").style.display = "none";
+  document.getElementById("wizardRecording").style.display = "none";
+  document.getElementById("wizardMarking").style.display = "none";
+  document.getElementById("wizardResults").style.display = "none";
 }
 
 // WiFi Settings Functions
 function applyWiFiSettings() {
-  const ssid = document.getElementById('ssid')?.value;
-  const pwd = document.getElementById('pwd')?.value;
-  
+  const ssid = document.getElementById("ssid")?.value;
+  const pwd = document.getElementById("pwd")?.value;
+
   if (!ssid) {
-    alert('Please enter a WiFi SSID');
+    alert(i18n.t("messages.wifi_enter_ssid"));
     return;
   }
-  
+
   if (!pwd) {
-    if (!confirm('WiFi password is empty. Continue?')) {
+    if (!confirm(i18n.t("messages.wifi_password_empty"))) {
       return;
     }
   }
-  
-  if (!confirm('Apply WiFi settings? The device will restart.')) {
+
+  if (!confirm(i18n.t("messages.wifi_apply_confirm"))) {
     return;
   }
-  
+
   // Save configuration first
   saveConfig();
-  
+
   // Give a moment for save to complete
   setTimeout(() => {
     // Send reboot command
     if (usbConnected && transportManager) {
-      transportManager.sendCommand('reboot', 'POST')
+      transportManager
+        .sendCommand("reboot", "POST")
         .then(() => {
-          alert('WiFi settings applied. Device is restarting...');
+          alert(i18n.t("messages.wifi_applied_restarting"));
         })
-        .catch(err => console.error('Failed to restart device:', err));
+        .catch((err) => console.error("Failed to restart device:", err));
     } else {
-      fetch('/reboot', {
-        method: 'POST',
+      fetch("/reboot", {
+        method: "POST",
         headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        }
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
       })
         .then(() => {
-          alert('WiFi settings applied. Device is restarting...');
+          alert(i18n.t("messages.wifi_applied_restarting"));
         })
-        .catch(err => console.error('Failed to restart device:', err));
+        .catch((err) => console.error("Failed to restart device:", err));
     }
   }, 500);
 }
 
 function resetWiFiSettings() {
-  if (!confirm('Reset WiFi settings to current values?')) {
+  if (!confirm(i18n.t("messages.wifi_reset_confirm"))) {
     return;
   }
-  
+
   // Reload config from device
   if (usbConnected && transportManager) {
-    transportManager.sendCommand('config', 'GET')
-      .then(configData => {
-        if (configData.ssid !== undefined) document.getElementById('ssid').value = configData.ssid;
-        if (configData.pwd !== undefined) document.getElementById('pwd').value = configData.pwd;
+    transportManager
+      .sendCommand("config", "GET")
+      .then((configData) => {
+        if (configData.ssid !== undefined) document.getElementById("ssid").value = configData.ssid;
+        if (configData.pwd !== undefined) document.getElementById("pwd").value = configData.pwd;
       })
-      .catch(err => console.error('Failed to fetch config:', err));
+      .catch((err) => console.error("Failed to fetch config:", err));
   } else {
-    fetch('/config')
-      .then(response => response.json())
-      .then(configData => {
-        if (configData.ssid !== undefined) document.getElementById('ssid').value = configData.ssid;
-        if (configData.pwd !== undefined) document.getElementById('pwd').value = configData.pwd;
+    fetch("/config")
+      .then((response) => response.json())
+      .then((configData) => {
+        if (configData.ssid !== undefined) document.getElementById("ssid").value = configData.ssid;
+        if (configData.pwd !== undefined) document.getElementById("pwd").value = configData.pwd;
       })
-      .catch(err => console.error('Failed to fetch config:', err));
+      .catch((err) => console.error("Failed to fetch config:", err));
   }
 }
 
@@ -3282,15 +3318,15 @@ function resetWiFiSettings() {
 // (openSettingsModal is defined later with full config loading)
 
 function closeSettingsModal() {
-  const modal = document.getElementById('settingsModal');
+  const modal = document.getElementById("settingsModal");
   if (modal) {
-    modal.classList.remove('active');
+    modal.classList.remove("active");
   }
 }
 
 // Close modal when clicking on the overlay background
-document.addEventListener('click', function(event) {
-  const modal = document.getElementById('settingsModal');
+document.addEventListener("click", function (event) {
+  const modal = document.getElementById("settingsModal");
   if (modal && event.target === modal) {
     closeSettingsModal();
   }
@@ -3298,30 +3334,30 @@ document.addEventListener('click', function(event) {
 
 function switchSettingsSection(sectionName) {
   // Hide all sections
-  const sections = document.querySelectorAll('.settings-section');
-  sections.forEach(section => section.classList.remove('active'));
-  
+  const sections = document.querySelectorAll(".settings-section");
+  sections.forEach((section) => section.classList.remove("active"));
+
   // Show selected section
   const targetSection = document.getElementById(`settings-${sectionName}`);
   if (targetSection) {
-    targetSection.classList.add('active');
+    targetSection.classList.add("active");
   }
-  
+
   // Update nav items
-  const navItems = document.querySelectorAll('.settings-nav-item');
-  navItems.forEach(item => {
-    item.classList.remove('active');
+  const navItems = document.querySelectorAll(".settings-nav-item");
+  navItems.forEach((item) => {
+    item.classList.remove("active");
   });
-  
+
   // Add active class to clicked nav item
-  event?.target?.closest('.settings-nav-item')?.classList.add('active');
+  event?.target?.closest(".settings-nav-item")?.classList.add("active");
 }
 
 // Keyboard shortcut for closing modal (ESC key)
-document.addEventListener('keydown', function(event) {
-  if (event.key === 'Escape') {
-    const modal = document.getElementById('settingsModal');
-    if (modal && modal.classList.contains('active')) {
+document.addEventListener("keydown", function (event) {
+  if (event.key === "Escape") {
+    const modal = document.getElementById("settingsModal");
+    if (modal && modal.classList.contains("active")) {
       closeSettingsModal();
     }
   }
@@ -3329,34 +3365,34 @@ document.addEventListener('keydown', function(event) {
 
 // Self-Test Functions
 function runSelfTest() {
-  const button = document.getElementById('runTestsButton');
-  const loadingDiv = document.getElementById('testLoading');
-  const resultsDiv = document.getElementById('testResults');
-  const resultsListDiv = document.getElementById('testResultsList');
-  
+  const button = document.getElementById("runTestsButton");
+  const loadingDiv = document.getElementById("testLoading");
+  const resultsDiv = document.getElementById("testResults");
+  const resultsListDiv = document.getElementById("testResultsList");
+
   // Show loading, hide results
   button.disabled = true;
-  button.textContent = 'Running Tests...';
-  loadingDiv.style.display = 'block';
-  resultsDiv.style.display = 'none';
-  
-  fetch('/api/selftest')
-    .then(response => response.json())
-    .then(data => {
+  button.textContent = i18n.t("diag.running");
+  loadingDiv.style.display = "block";
+  resultsDiv.style.display = "none";
+
+  fetch("/api/selftest")
+    .then((response) => response.json())
+    .then((data) => {
       // Hide loading
-      loadingDiv.style.display = 'none';
-      
+      loadingDiv.style.display = "none";
+
       // Build results HTML
-      let html = '';
+      let html = "";
       let allPassed = true;
-      
-      data.tests.forEach(test => {
+
+      data.tests.forEach((test) => {
         if (!test.passed) allPassed = false;
-        
-        const statusIcon = test.passed ? '✓' : '✗';
-        const statusColor = test.passed ? '#4ade80' : '#ff5555';
-        const bgColor = test.passed ? 'rgba(74, 222, 128, 0.1)' : 'rgba(255, 85, 85, 0.1)';
-        
+
+        const statusIcon = test.passed ? "✓" : "✗";
+        const statusColor = test.passed ? "#4ade80" : "#ff5555";
+        const bgColor = test.passed ? "rgba(74, 222, 128, 0.1)" : "rgba(255, 85, 85, 0.1)";
+
         html += `
           <div style="margin-bottom: 12px; padding: 12px; background-color: ${bgColor}; border-left: 4px solid ${statusColor}; border-radius: 4px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
@@ -3372,42 +3408,43 @@ function runSelfTest() {
           </div>
         `;
       });
-      
+
       // Add summary
-      const passedCount = data.tests.filter(t => t.passed).length;
+      const passedCount = data.tests.filter((t) => t.passed).length;
       const totalCount = data.tests.length;
-      const summaryColor = allPassed ? '#4ade80' : '#ff9f43';
-      
-      html = `
+      const summaryColor = allPassed ? "#4ade80" : "#ff9f43";
+
+      html =
+        `
         <div style="margin-bottom: 20px; padding: 16px; background-color: var(--bg-secondary); border-radius: 8px; text-align: center;">
           <div style="font-size: 18px; font-weight: bold; margin-bottom: 8px; color: ${summaryColor};">
-            ${allPassed ? 'All Tests Passed!' : 'Some Tests Failed'}
+            ${allPassed ? i18n.t("diag.all_passed") : i18n.t("diag.some_failed")}
           </div>
           <div style="font-size: 14px; color: var(--secondary-color);">
             ${passedCount} / ${totalCount} tests passed
           </div>
         </div>
       ` + html;
-      
+
       resultsListDiv.innerHTML = html;
-      resultsDiv.style.display = 'block';
-      
+      resultsDiv.style.display = "block";
+
       // Re-enable button
       button.disabled = false;
-      button.textContent = 'Run All Tests Again';
+      button.textContent = i18n.t("diag.run_again");
     })
-    .catch(error => {
-      console.error('Error running self-test:', error);
-      loadingDiv.style.display = 'none';
+    .catch((error) => {
+      console.error("Error running self-test:", error);
+      loadingDiv.style.display = "none";
       resultsListDiv.innerHTML = `
         <div style="padding: 16px; background-color: rgba(255, 85, 85, 0.1); border-left: 4px solid #ff5555; border-radius: 4px;">
-          <div style="font-weight: bold; color: #ff5555; margin-bottom: 6px;">Error Running Tests</div>
+          <div style="font-weight: bold; color: #ff5555; margin-bottom: 6px;">${i18n.t("diag.error_running")}</div>
           <div style="font-size: 14px; color: var(--secondary-color);">${error.message}</div>
         </div>
       `;
-      resultsDiv.style.display = 'block';
+      resultsDiv.style.display = "block";
       button.disabled = false;
-      button.textContent = 'Run All Tests';
+      button.textContent = i18n.t("diag.run_all");
     });
 }
 
@@ -3430,73 +3467,73 @@ function toggleSerialMonitor() {
 }
 
 function startSerialMonitor() {
-  const button = document.getElementById('serialMonitorToggle');
-  const monitor = document.getElementById('serialMonitor');
-  
-  button.textContent = 'Stop Monitor';
-  button.style.backgroundColor = '#ff5555';
+  const button = document.getElementById("serialMonitorToggle");
+  const monitor = document.getElementById("serialMonitor");
+
+  button.textContent = i18n.t("diag.stop_monitor");
+  button.style.backgroundColor = "#ff5555";
   serialMonitorActive = true;
   lastSeenTimestamp = 0;
-  
+
   // Clear monitor and show starting message
-  monitor.innerHTML = '<div style="color: #4ade80;">[SYSTEM] Serial monitor started</div>';
-  
+  monitor.innerHTML = `<div style="color: #4ade80;">${i18n.t("diag.monitor_started")}</div>`;
+
   // Poll for new debug logs every 500ms
   serialMonitorPollInterval = setInterval(pollDebugLogs, 500);
-  
+
   // Initial poll
   pollDebugLogs();
 }
 
 function pollDebugLogs() {
   if (!serialMonitorActive) return;
-  
-  fetch('/api/debuglog')
-    .then(response => response.json())
-    .then(data => {
+
+  fetch("/api/debuglog")
+    .then((response) => response.json())
+    .then((data) => {
       if (data.logs && data.logs.length > 0) {
         // Add new logs that we haven't seen yet
-        data.logs.forEach(log => {
+        data.logs.forEach((log) => {
           if (log.timestamp > lastSeenTimestamp) {
-            appendSerialLine(log.message, '#00ff00', log.timestamp);
+            appendSerialLine(log.message, "#00ff00", log.timestamp);
             lastSeenTimestamp = log.timestamp;
           }
         });
       }
     })
-    .catch(error => {
+    .catch((error) => {
       if (serialMonitorActive) {
-        console.error('Failed to fetch debug logs:', error);
+        console.error("Failed to fetch debug logs:", error);
       }
     });
 }
 
 function stopSerialMonitor() {
-  const button = document.getElementById('serialMonitorToggle');
-  const monitor = document.getElementById('serialMonitor');
-  
-  button.textContent = 'Start Monitor';
-  button.style.backgroundColor = '';
+  const button = document.getElementById("serialMonitorToggle");
+  const monitor = document.getElementById("serialMonitor");
+
+  button.textContent = i18n.t("diag.start_monitor");
+  button.style.backgroundColor = "";
   serialMonitorActive = false;
-  
+
   if (serialMonitorPollInterval) {
     clearInterval(serialMonitorPollInterval);
     serialMonitorPollInterval = null;
   }
-  
-  const line = document.createElement('div');
-  line.style.color = '#888';
-  line.textContent = '[SYSTEM] Serial monitor stopped';
+
+  const line = document.createElement("div");
+  line.style.color = "#888";
+  line.textContent = i18n.t("diag.monitor_stopped");
   monitor.appendChild(line);
 }
 
-function appendSerialLine(text, color = '#00ff00', deviceTimestamp = null) {
-  const monitor = document.getElementById('serialMonitor');
-  const autoScroll = document.getElementById('serialAutoScroll')?.checked;
-  
+function appendSerialLine(text, color = "#00ff00", deviceTimestamp = null) {
+  const monitor = document.getElementById("serialMonitor");
+  const autoScroll = document.getElementById("serialAutoScroll")?.checked;
+
   // Add line to buffer
   serialMonitorBuffer.push({ text, color, deviceTimestamp });
-  
+
   // Trim buffer if too large
   if (serialMonitorBuffer.length > MAX_SERIAL_LINES) {
     serialMonitorBuffer.shift();
@@ -3504,12 +3541,12 @@ function appendSerialLine(text, color = '#00ff00', deviceTimestamp = null) {
     rebuildSerialMonitor();
   } else {
     // Just append new line
-    const line = document.createElement('div');
+    const line = document.createElement("div");
     line.style.color = color;
     line.textContent = text;
     monitor.appendChild(line);
   }
-  
+
   // Auto-scroll to bottom
   if (autoScroll) {
     monitor.scrollTop = monitor.scrollHeight;
@@ -3517,11 +3554,11 @@ function appendSerialLine(text, color = '#00ff00', deviceTimestamp = null) {
 }
 
 function rebuildSerialMonitor() {
-  const monitor = document.getElementById('serialMonitor');
-  monitor.innerHTML = '';
-  
+  const monitor = document.getElementById("serialMonitor");
+  monitor.innerHTML = "";
+
   serialMonitorBuffer.forEach(({ text, color }) => {
-    const line = document.createElement('div');
+    const line = document.createElement("div");
     line.style.color = color;
     line.textContent = text;
     monitor.appendChild(line);
@@ -3529,11 +3566,9 @@ function rebuildSerialMonitor() {
 }
 
 function clearSerialMonitor() {
-  const monitor = document.getElementById('serialMonitor');
+  const monitor = document.getElementById("serialMonitor");
   serialMonitorBuffer = [];
-  monitor.innerHTML = serialMonitorActive 
-    ? '<div style="color: #888;">Monitor cleared...</div>' 
-    : '<div style="color: #888;">Serial monitor stopped. Click "Start Monitor" to begin.</div>';
+  monitor.innerHTML = serialMonitorActive ? `<div style="color: #888;">${i18n.t("diag.monitor_cleared")}</div>` : `<div style="color: #888;">${i18n.t("diag.monitor_stopped")}</div>`;
 }
 
 // ============================================
@@ -3545,16 +3580,16 @@ function startDistancePolling() {
   if (distancePollingInterval) {
     clearInterval(distancePollingInterval);
   }
-  
+
   // Initial fetch
   fetchDistance();
-  
+
   distancePollingInterval = setInterval(() => {
     fetchDistance();
     // Also update the display to refresh the estimated distance
     updateDistanceDisplay();
   }, 5000);
-  
+
   // Also update display more frequently (every 100ms) for smoother estimation
   if (!window.distanceDisplayInterval) {
     window.distanceDisplayInterval = setInterval(() => {
@@ -3575,57 +3610,57 @@ function stopDistancePolling() {
 }
 
 function fetchDistance() {
-  fetch('/timer/distance', {
-    signal: AbortSignal.timeout(3000) // 3 second timeout
+  fetch("/timer/distance", {
+    signal: AbortSignal.timeout(3000), // 3 second timeout
   })
-    .then(response => {
-      if (!response.ok) throw new Error('Distance fetch failed');
+    .then((response) => {
+      if (!response.ok) throw new Error("Distance fetch failed");
       return response.json();
     })
-    .then(data => {
+    .then((data) => {
       currentTrackId = data.trackId || 0;
-      currentTrackName = data.trackName || '';
+      currentTrackName = data.trackName || "";
       trackLapLength = data.trackDistance || 0.0;
       currentTotalDistance = data.totalDistance || 0;
       currentDistanceRemaining = data.distanceRemaining || 0;
       updateDistanceDisplay();
     })
-    .catch(error => {
+    .catch((error) => {
       // Silently fail - don't spam console or cause issues
-      if (error.name !== 'TimeoutError' && error.name !== 'AbortError') {
-        console.warn('Distance fetch error:', error.message);
+      if (error.name !== "TimeoutError" && error.name !== "AbortError") {
+        console.warn("Distance fetch error:", error.message);
       }
     });
 }
 
 function updateDistanceDisplay() {
   // Update lap counter to include current lap time and per-lap distance
-  const lapCounter = document.getElementById('lapCounter');
+  const lapCounter = document.getElementById("lapCounter");
   if (!lapCounter) return;
-  
+
   // Base lap counter text
-  let lapText = '';
+  let lapText = "";
   if (maxLaps === 0) {
-    lapText = `Lap ${Math.max(0, lapNo)}`;
+    lapText = i18n.t("race.lap_counter", { n: Math.max(0, lapNo) });
   } else {
-    lapText = `Lap ${Math.max(0, lapNo)} / ${maxLaps}`;
+    lapText = i18n.t("race.lap_of", { n: Math.max(0, lapNo), total: maxLaps });
   }
-  
+
   // Calculate current lap time (time since last lap or race start)
   if (lapTimerStartMs > 0) {
     const currentLapMs = Date.now() - lapTimerStartMs;
     const minutes = Math.floor(currentLapMs / 60000);
     const seconds = Math.floor((currentLapMs % 60000) / 1000);
     const centiseconds = Math.floor((currentLapMs % 1000) / 10);
-    
+
     const m = minutes < 10 ? "0" + minutes : minutes;
     const s = seconds < 10 ? "0" + seconds : seconds;
     const ms = centiseconds < 10 ? "0" + centiseconds : centiseconds;
-    const lapTimeText = `${m}:${s}:${ms}s`;
-    
+    const lapTimeText = `${m}:${s}:${ms}` + i18n.t("race.seconds_short");
+
     lapText += ` - ${lapTimeText}`;
   }
-  
+
   // Add per-lap distance if track is selected and race is running
   if (currentTrackId && trackLapLength > 0) {
     // Estimate distance travelled in current lap using time extrapolation
@@ -3635,10 +3670,10 @@ function updateDistanceDisplay() {
       const progress = Math.min(currentLapElapsed / lastCompletedLapTime, 1.0);
       estimatedDistance = progress * trackLapLength;
     }
-    
+
     lapText += ` - ${estimatedDistance.toFixed(1)}/${trackLapLength.toFixed(1)}m`;
   }
-  
+
   lapCounter.textContent = lapText;
 }
 
@@ -3650,94 +3685,94 @@ let currentEditTrackId = null;
 let allTracks = [];
 
 function toggleTracksEnabled(enabled) {
-  const tracksContent = document.getElementById('tracksContent');
+  const tracksContent = document.getElementById("tracksContent");
   if (tracksContent) {
-    tracksContent.style.display = enabled ? 'block' : 'none';
+    tracksContent.style.display = enabled ? "block" : "none";
   }
-  
+
   // Save to config
-  fetch('/config', {
-    method: 'POST',
+  fetch("/config", {
+    method: "POST",
     headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
+      Accept: "application/json",
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      tracksEnabled: enabled ? 1 : 0
+      tracksEnabled: enabled ? 1 : 0,
+    }),
+  })
+    .then((response) => response.json())
+    .then(() => {
+      if (enabled) {
+        loadTracks();
+      }
     })
-  })
-  .then(response => response.json())
-  .then(() => {
-    if (enabled) {
-      loadTracks();
-    }
-  })
-  .catch(error => console.error('Error toggling tracks:', error));
+    .catch((error) => console.error("Error toggling tracks:", error));
 }
 
 function loadTracks() {
-  fetch('/tracks')
-    .then(response => response.json())
-    .then(data => {
+  fetch("/tracks")
+    .then((response) => response.json())
+    .then((data) => {
       allTracks = data.tracks || [];
       displayTracks();
       updateTrackSelect();
     })
-    .catch(error => console.error('Error loading tracks:', error));
+    .catch((error) => console.error("Error loading tracks:", error));
 }
 
 function displayTracks() {
-  const tracksList = document.getElementById('tracksList');
+  const tracksList = document.getElementById("tracksList");
   if (!tracksList) return;
-  
+
   if (allTracks.length === 0) {
-    tracksList.innerHTML = '<p style="color: var(--secondary-color); text-align: center;">No tracks created yet</p>';
+    tracksList.innerHTML = `<p style="color: var(--secondary-color); text-align: center;">${i18n.t("settings.tracks.no_tracks")}</p>`;
     return;
   }
-  
+
   let html = '<div style="display: flex; flex-direction: column; gap: 12px;">';
-  
-  allTracks.forEach(track => {
+
+  allTracks.forEach((track) => {
     html += `
       <div style="padding: 12px; background-color: var(--bg-secondary); border-radius: 8px; border-left: 4px solid var(--accent-color);">
         <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 8px;">
           <div style="flex: 1;">
             <div style="font-weight: bold; font-size: 16px; margin-bottom: 4px;">${track.name}</div>
             <div style="font-size: 14px; color: var(--secondary-color);">
-              ${track.distance} meters${track.tags ? ' • ' + track.tags : ''}
+              ${i18n.t("modals.track.unit_meters", { n: track.distance })}${track.tags ? " • " + track.tags : ""}
             </div>
           </div>
           <div style="display: flex; gap: 8px;">
-            <button onclick="editTrack(${track.trackId})" style="padding: 6px 12px; font-size: 14px;">Edit</button>
-            <button onclick="deleteTrack(${track.trackId})" style="padding: 6px 12px; font-size: 14px; background-color: var(--danger-color);">Delete</button>
+            <button onclick="editTrack(${track.trackId})" style="padding: 6px 12px; font-size: 14px;">${i18n.t("history.edit")}</button>
+            <button onclick="deleteTrack(${track.trackId})" style="padding: 6px 12px; font-size: 14px; background-color: var(--danger-color);">${i18n.t("history.delete")}</button>
           </div>
         </div>
-        ${track.notes ? `<div style="font-size: 13px; color: var(--secondary-color); margin-top: 8px;">${track.notes}</div>` : ''}
+        ${track.notes ? `<div style="font-size: 13px; color: var(--secondary-color); margin-top: 8px;">${track.notes}</div>` : ""}
       </div>
     `;
   });
-  
-  html += '</div>';
+
+  html += "</div>";
   tracksList.innerHTML = html;
 }
 
 function updateTrackSelect() {
-  const selectEl = document.getElementById('selectedTrack');
+  const selectEl = document.getElementById("selectedTrack");
   if (!selectEl) return;
-  
+
   // Save current selection
   const currentSelection = selectEl.value;
-  
+
   // Clear and repopulate
-  selectEl.innerHTML = '<option value="0">None</option>';
-  
-  allTracks.forEach(track => {
-    const option = document.createElement('option');
+  selectEl.innerHTML = `<option value="0">${i18n.t("settings.tracks.none")}</option>`;
+
+  allTracks.forEach((track) => {
+    const option = document.createElement("option");
     option.value = track.trackId;
     option.textContent = `${track.name} (${track.distance}m)`;
     selectEl.appendChild(option);
   });
-  
+
   // Restore selection if it still exists
   if (currentSelection) {
     selectEl.value = currentSelection;
@@ -3746,120 +3781,120 @@ function updateTrackSelect() {
 
 function openCreateTrackModal() {
   currentEditTrackId = null;
-  document.getElementById('trackModalTitle').textContent = 'Create Track';
-  document.getElementById('trackName').value = '';
-  document.getElementById('trackDistance').value = '';
-  document.getElementById('trackTags').value = '';
-  document.getElementById('trackNotes').value = '';
-  document.getElementById('saveTrackBtn').textContent = 'Save Track';
-  document.getElementById('trackModal').style.display = 'flex';
+  document.getElementById("trackModalTitle").textContent = i18n.t("modals.track.create_title");
+  document.getElementById("trackName").value = "";
+  document.getElementById("trackDistance").value = "";
+  document.getElementById("trackTags").value = "";
+  document.getElementById("trackNotes").value = "";
+  document.getElementById("saveTrackBtn").textContent = i18n.t("modals.track.save");
+  document.getElementById("trackModal").style.display = "flex";
 }
 
 function editTrack(trackId) {
-  const track = allTracks.find(t => t.trackId === trackId);
+  const track = allTracks.find((t) => t.trackId === trackId);
   if (!track) return;
-  
+
   currentEditTrackId = trackId;
-  document.getElementById('trackModalTitle').textContent = 'Edit Track';
-  document.getElementById('trackName').value = track.name;
-  document.getElementById('trackDistance').value = track.distance;
-  document.getElementById('trackTags').value = track.tags || '';
-  document.getElementById('trackNotes').value = track.notes || '';
-  document.getElementById('saveTrackBtn').textContent = 'Update Track';
-  document.getElementById('trackModal').style.display = 'flex';
+  document.getElementById("trackModalTitle").textContent = i18n.t("modals.track.edit_title");
+  document.getElementById("trackName").value = track.name;
+  document.getElementById("trackDistance").value = track.distance;
+  document.getElementById("trackTags").value = track.tags || "";
+  document.getElementById("trackNotes").value = track.notes || "";
+  document.getElementById("saveTrackBtn").textContent = i18n.t("modals.track.update");
+  document.getElementById("trackModal").style.display = "flex";
 }
 
 function closeTrackModal() {
-  document.getElementById('trackModal').style.display = 'none';
+  document.getElementById("trackModal").style.display = "none";
   currentEditTrackId = null;
 }
 
 function saveTrack() {
-  const name = document.getElementById('trackName').value.trim();
-  const distance = parseFloat(document.getElementById('trackDistance').value);
-  const tags = document.getElementById('trackTags').value.trim();
-  const notes = document.getElementById('trackNotes').value.trim();
-  
+  const name = document.getElementById("trackName").value.trim();
+  const distance = parseFloat(document.getElementById("trackDistance").value);
+  const tags = document.getElementById("trackTags").value.trim();
+  const notes = document.getElementById("trackNotes").value.trim();
+
   if (!name) {
-    alert('Please enter a track name');
+    alert("Please enter a track name");
     return;
   }
-  
+
   if (!distance || distance <= 0) {
-    alert('Please enter a valid distance');
+    alert("Please enter a valid distance");
     return;
   }
-  
+
   const trackData = {
     trackId: currentEditTrackId || Math.floor(Date.now() / 1000),
     name: name,
     distance: distance,
     tags: tags,
-    notes: notes
+    notes: notes,
   };
-  
-  const endpoint = currentEditTrackId ? '/tracks/update' : '/tracks/create';
-  
+
+  const endpoint = currentEditTrackId ? "/tracks/update" : "/tracks/create";
+
   fetch(endpoint, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
+      Accept: "application/json",
+      "Content-Type": "application/json",
     },
-    body: JSON.stringify(trackData)
+    body: JSON.stringify(trackData),
   })
-  .then(response => response.json())
-  .then(data => {
-    if (data.status === 'OK') {
-      closeTrackModal();
-      loadTracks();
-    } else {
-      alert('Error saving track');
-    }
-  })
-  .catch(error => {
-    console.error('Error saving track:', error);
-    alert('Error saving track');
-  });
+    .then((response) => response.json())
+    .then((data) => {
+      if (data.status === "OK") {
+        closeTrackModal();
+        loadTracks();
+      } else {
+        alert(i18n.t("messages.track_save_error"));
+      }
+    })
+    .catch((error) => {
+      console.error("Error saving track:", error);
+      alert(i18n.t("messages.track_save_error"));
+    });
 }
 
 function deleteTrack(trackId) {
-  if (!confirm('Are you sure you want to delete this track?')) {
+  if (!confirm(i18n.t("messages.track_delete_confirm"))) {
     return;
   }
-  
-  fetch('/tracks/delete', {
-    method: 'POST',
+
+  fetch("/tracks/delete", {
+    method: "POST",
     headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
+      "Content-Type": "application/x-www-form-urlencoded",
     },
-    body: 'trackId=' + trackId
+    body: "trackId=" + trackId,
   })
-  .then(response => response.json())
-  .then(data => {
-    if (data.status === 'OK') {
-      loadTracks();
-    } else {
-      alert('Error deleting track');
-    }
-  })
-  .catch(error => {
-    console.error('Error deleting track:', error);
-    alert('Error deleting track');
-  });
+    .then((response) => response.json())
+    .then((data) => {
+      if (data.status === "OK") {
+        loadTracks();
+      } else {
+        alert(i18n.t("messages.track_delete_error"));
+      }
+    })
+    .catch((error) => {
+      console.error("Error deleting track:", error);
+      alert(i18n.t("messages.track_delete_error"));
+    });
 }
 
 function selectTrack() {
-  const selectEl = document.getElementById('selectedTrack');
+  const selectEl = document.getElementById("selectedTrack");
   const trackId = parseInt(selectEl.value);
-  
+
   // Update local track length when track is selected
   if (trackId === 0) {
     trackLapLength = 0;
     currentTrackId = 0;
-    currentTrackName = '';
+    currentTrackName = "";
   } else {
-    const selectedTrack = allTracks.find(t => t.trackId === trackId);
+    const selectedTrack = allTracks.find((t) => t.trackId === trackId);
     if (selectedTrack) {
       trackLapLength = selectedTrack.distance;
       currentTrackId = selectedTrack.trackId;
@@ -3867,197 +3902,197 @@ function selectTrack() {
       console.log(`Track selected: ${selectedTrack.name}, length: ${trackLapLength}m`);
     }
   }
-  
-  fetch('/tracks/select', {
-    method: 'POST',
+
+  fetch("/tracks/select", {
+    method: "POST",
     headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
+      "Content-Type": "application/x-www-form-urlencoded",
     },
-    body: 'trackId=' + trackId
+    body: "trackId=" + trackId,
   })
-  .then(response => response.json())
-  .then(data => {
-    if (data.status === 'OK') {
-      console.log('Track selected on backend:', trackId);
-      // Save to config
-      fetch('/config', {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          selectedTrackId: trackId
-        })
-      });
-    }
-  })
-  .catch(error => console.error('Error selecting track:', error));
+    .then((response) => response.json())
+    .then((data) => {
+      if (data.status === "OK") {
+        console.log("Track selected on backend:", trackId);
+        // Save to config
+        fetch("/config", {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            selectedTrackId: trackId,
+          }),
+        });
+      }
+    })
+    .catch((error) => console.error("Error selecting track:", error));
 }
 
 // ===== WEBHOOK MANAGEMENT =====
 
 function toggleWebhooks(enabled) {
-  const webhooksContent = document.getElementById('webhooksContent');
+  const webhooksContent = document.getElementById("webhooksContent");
   if (webhooksContent) {
-    webhooksContent.style.display = enabled ? 'block' : 'none';
+    webhooksContent.style.display = enabled ? "block" : "none";
   }
-  
+
   // Enable/disable webhooks on backend
-  fetch('/webhooks/enable', {
-    method: 'POST',
+  fetch("/webhooks/enable", {
+    method: "POST",
     headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
+      "Content-Type": "application/x-www-form-urlencoded",
     },
-    body: 'enabled=' + (enabled ? '1' : '0')
+    body: "enabled=" + (enabled ? "1" : "0"),
   })
-  .then(response => response.json())
-  .then(data => {
-    console.log('Webhooks:', enabled ? 'enabled' : 'disabled', data);
-    if (enabled) {
-      loadWebhooks();
-    }
-  })
-  .catch(error => console.error('Error toggling webhooks:', error));
+    .then((response) => response.json())
+    .then((data) => {
+      console.log("Webhooks:", enabled ? "enabled" : "disabled", data);
+      if (enabled) {
+        loadWebhooks();
+      }
+    })
+    .catch((error) => console.error("Error toggling webhooks:", error));
 }
 
 function loadWebhooks() {
-  fetch('/webhooks')
-    .then(response => response.json())
-    .then(data => {
+  fetch("/webhooks")
+    .then((response) => response.json())
+    .then((data) => {
       displayWebhooks(data.webhooks || []);
     })
-    .catch(error => console.error('Error loading webhooks:', error));
+    .catch((error) => console.error("Error loading webhooks:", error));
 }
 
 function displayWebhooks(webhooks) {
-  const webhooksListContent = document.getElementById('webhooksListContent');
+  const webhooksListContent = document.getElementById("webhooksListContent");
   if (!webhooksListContent) return;
-  
+
   if (webhooks.length === 0) {
-    webhooksListContent.innerHTML = '<p style="color: var(--secondary-color); text-align: center; padding: 16px;">No webhooks configured yet</p>';
+    webhooksListContent.innerHTML = `<p style="color: var(--secondary-color); text-align: center; padding: 16px;">${i18n.t("settings.webhooks.no_webhooks")}</p>`;
     return;
   }
-  
+
   let html = '<div style="display: flex; flex-direction: column; gap: 8px;">';
-  
-  webhooks.forEach(ip => {
+
+  webhooks.forEach((ip) => {
     html += `
       <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background-color: var(--bg-secondary); border-radius: 8px; border-left: 4px solid var(--accent-color);">
         <div>
           <div style="font-weight: bold; font-size: 15px;">${ip}</div>
           <div style="font-size: 13px; color: var(--secondary-color); margin-top: 2px;">http://${ip}/Lap, /RaceStart, /RaceStop</div>
         </div>
-        <button onclick="removeWebhook('${ip}')" style="padding: 6px 12px; font-size: 14px; background-color: var(--danger-color);">Remove</button>
+        <button onclick="removeWebhook('${ip}')" style="padding: 6px 12px; font-size: 14px; background-color: var(--danger-color);">${i18n.t("history.remove")}</button>
       </div>
     `;
   });
-  
-  html += '</div>';
+
+  html += "</div>";
   webhooksListContent.innerHTML = html;
 }
 
 function addWebhook() {
-  const ipInput = document.getElementById('webhookIP');
+  const ipInput = document.getElementById("webhookIP");
   const ip = ipInput.value.trim();
-  
+
   if (!ip) {
-    alert('Please enter an IP address');
+    alert(i18n.t("messages.webhook_enter_ip"));
     return;
   }
-  
+
   // Basic IP validation
   const ipPattern = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
   if (!ipPattern.test(ip)) {
-    alert('Please enter a valid IP address (e.g., 192.168.0.75)');
+    alert(i18n.t("messages.webhook_valid_ip"));
     return;
   }
-  
-  fetch('/webhooks/add', {
-    method: 'POST',
+
+  fetch("/webhooks/add", {
+    method: "POST",
     headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
+      "Content-Type": "application/x-www-form-urlencoded",
     },
-    body: 'ip=' + encodeURIComponent(ip)
+    body: "ip=" + encodeURIComponent(ip),
   })
-  .then(response => response.json())
-  .then(data => {
-    if (data.status === 'OK') {
-      ipInput.value = ''; // Clear input
-      loadWebhooks(); // Reload list
-      console.log('Webhook added:', ip);
-    } else {
-      alert('Error adding webhook: ' + (data.message || 'Unknown error'));
-    }
-  })
-  .catch(error => {
-    console.error('Error adding webhook:', error);
-    alert('Error adding webhook');
-  });
+    .then((response) => response.json())
+    .then((data) => {
+      if (data.status === "OK") {
+        ipInput.value = ""; // Clear input
+        loadWebhooks(); // Reload list
+        console.log("Webhook added:", ip);
+      } else {
+        alert(i18n.t("messages.webhook_add_error") + ": " + (data.message || "Unknown error"));
+      }
+    })
+    .catch((error) => {
+      console.error("Error adding webhook:", error);
+      alert(i18n.t("messages.webhook_add_error"));
+    });
 }
 
 function removeWebhook(ip) {
-  if (!confirm('Remove webhook for ' + ip + '?')) {
+  if (!confirm(i18n.t("messages.webhook_remove_confirm", { ip: ip }))) {
     return;
   }
-  
-  fetch('/webhooks/remove', {
-    method: 'POST',
+
+  fetch("/webhooks/remove", {
+    method: "POST",
     headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
+      "Content-Type": "application/x-www-form-urlencoded",
     },
-    body: 'ip=' + encodeURIComponent(ip)
+    body: "ip=" + encodeURIComponent(ip),
   })
-  .then(response => response.json())
-  .then(data => {
-    if (data.status === 'OK') {
-      loadWebhooks(); // Reload list
-      console.log('Webhook removed:', ip);
-    } else {
-      alert('Error removing webhook');
-    }
-  })
-  .catch(error => {
-    console.error('Error removing webhook:', error);
-    alert('Error removing webhook');
-  });
+    .then((response) => response.json())
+    .then((data) => {
+      if (data.status === "OK") {
+        loadWebhooks(); // Reload list
+        console.log("Webhook removed:", ip);
+      } else {
+        alert(i18n.t("messages.webhook_remove_error"));
+      }
+    })
+    .catch((error) => {
+      console.error("Error removing webhook:", error);
+      alert("Error removing webhook");
+    });
 }
 
 function testWebhook() {
-  fetch('/webhooks/trigger/flash', {
-    method: 'POST'
+  fetch("/webhooks/trigger/flash", {
+    method: "POST",
   })
-  .then(response => {
-    if (!response.ok) {
-      return response.json().then(data => {
-        throw new Error(data.message || 'Unknown error');
-      });
-    }
-    return response.json();
-  })
-  .then(data => {
-    if (data.status === 'OK') {
-      alert('Test flash sent to all configured webhooks!\n\nCheck your LED controller to verify.');
-    } else {
-      alert('Error: ' + (data.message || 'Unknown error'));
-    }
-  })
-  .catch(error => {
-    console.error('Error testing webhook:', error);
-    alert('Error sending test webhook: ' + error.message);
-  });
+    .then((response) => {
+      if (!response.ok) {
+        return response.json().then((data) => {
+          throw new Error(data.message || "Unknown error");
+        });
+      }
+      return response.json();
+    })
+    .then((data) => {
+      if (data.status === "OK") {
+        alert(i18n.t("messages.webhook_test_sent"));
+      } else {
+        alert(i18n.t("messages.error_generic", { n: data.message || "Unknown error" }));
+      }
+    })
+    .catch((error) => {
+      console.error("Error testing webhook:", error);
+      alert(i18n.t("messages.error_generic", { n: error.message }));
+    });
 }
 
 // Load tracks when settings modal opens
 function openSettingsModal() {
-  const modal = document.getElementById('settingsModal');
+  const modal = document.getElementById("settingsModal");
   if (modal) {
-    modal.classList.add('active');
-    
+    modal.classList.add("active");
+
     // Load full config to populate all settings
-    fetch('/config')
-      .then(response => response.json())
-      .then(config => {
+    fetch("/config")
+      .then((response) => response.json())
+      .then((config) => {
         // Populate all device config fields
         if (config.freq !== undefined) setBandChannelIndex(config.freq);
         if (config.minLap !== undefined) {
@@ -4088,18 +4123,18 @@ function openSettingsModal() {
           maxLapsInput.value = config.maxLaps;
           updateMaxLaps(maxLapsInput, maxLapsInput.value);
         }
-        
+
         // LED settings
-        const ledBrightnessInput = document.getElementById('ledBrightness');
+        const ledBrightnessInput = document.getElementById("ledBrightness");
         if (config.ledBrightness !== undefined && ledBrightnessInput) {
           ledBrightnessInput.value = config.ledBrightness;
           updateLedBrightness(ledBrightnessInput, config.ledBrightness);
         }
-        
+
         // Pilot settings
-        const callsignInput = document.getElementById('pcallsign');
-        const phoneticInput = document.getElementById('pphonetic');
-        const colorInput = document.getElementById('pilotColor');
+        const callsignInput = document.getElementById("pcallsign");
+        const phoneticInput = document.getElementById("pphonetic");
+        const colorInput = document.getElementById("pilotColor");
         if (callsignInput && config.pilotCallsign !== undefined) {
           callsignInput.value = config.pilotCallsign;
         }
@@ -4107,14 +4142,14 @@ function openSettingsModal() {
           phoneticInput.value = config.pilotPhonetic;
         }
         if (colorInput && config.pilotColor !== undefined) {
-          const hexColor = '#' + ('000000' + config.pilotColor.toString(16)).slice(-6).toUpperCase();
+          const hexColor = "#" + ("000000" + config.pilotColor.toString(16)).slice(-6).toUpperCase();
           colorInput.value = hexColor;
           updateColorPreview();
         }
-        
+
         // Voice and lap format settings
-        const voiceSelect = document.getElementById('voiceSelect');
-        const lapFormatSelect = document.getElementById('lapFormatSelect');
+        const voiceSelect = document.getElementById("voiceSelect");
+        const lapFormatSelect = document.getElementById("lapFormatSelect");
         if (voiceSelect && config.selectedVoice) {
           voiceSelect.value = config.selectedVoice;
           selectedVoice = config.selectedVoice;
@@ -4123,67 +4158,66 @@ function openSettingsModal() {
           lapFormatSelect.value = config.lapFormat;
           lapFormat = config.lapFormat;
         }
-        
+
         // Theme setting
-        const themeSelect = document.getElementById('themeSelect');
+        const themeSelect = document.getElementById("themeSelect");
         if (themeSelect && config.theme) {
           themeSelect.value = config.theme;
         }
-        
+
         // Gate LEDs and webhook event settings
-        const gateLEDsEnabledToggle = document.getElementById('gateLEDsEnabled');
-        const webhookRaceStartToggle = document.getElementById('webhookRaceStart');
-        const webhookRaceStopToggle = document.getElementById('webhookRaceStop');
-        const webhookLapToggle = document.getElementById('webhookLap');
-        const gateLEDOptions = document.getElementById('gateLEDOptions');
-        
+        const gateLEDsEnabledToggle = document.getElementById("gateLEDsEnabled");
+        const webhookRaceStartToggle = document.getElementById("webhookRaceStart");
+        const webhookRaceStopToggle = document.getElementById("webhookRaceStop");
+        const webhookLapToggle = document.getElementById("webhookLap");
+        const gateLEDOptions = document.getElementById("gateLEDOptions");
+
         if (gateLEDsEnabledToggle && config.gateLEDsEnabled !== undefined) {
           gateLEDsEnabledToggle.checked = config.gateLEDsEnabled === 1;
           if (gateLEDOptions) {
-            gateLEDOptions.style.display = config.gateLEDsEnabled === 1 ? 'block' : 'none';
+            gateLEDOptions.style.display = config.gateLEDsEnabled === 1 ? "block" : "none";
           }
         }
-        
+
         if (webhookRaceStartToggle && config.webhookRaceStart !== undefined) {
           webhookRaceStartToggle.checked = config.webhookRaceStart === 1;
         }
-        
+
         if (webhookRaceStopToggle && config.webhookRaceStop !== undefined) {
           webhookRaceStopToggle.checked = config.webhookRaceStop === 1;
         }
-        
+
         if (webhookLapToggle && config.webhookLap !== undefined) {
           webhookLapToggle.checked = config.webhookLap === 1;
         }
-        
+
         // Tracks
         const tracksEnabled = config.tracksEnabled === 1;
-        const tracksCheckbox = document.getElementById('tracksEnabled');
+        const tracksCheckbox = document.getElementById("tracksEnabled");
         if (tracksCheckbox) {
           tracksCheckbox.checked = tracksEnabled;
           toggleTracksEnabled(tracksEnabled);
         }
-        
+
         // Set selected track
         if (config.selectedTrackId) {
-          const selectEl = document.getElementById('selectedTrack');
+          const selectEl = document.getElementById("selectedTrack");
           if (selectEl) {
             selectEl.value = config.selectedTrackId;
           }
         }
-        
+
         // Webhooks
         const webhooksEnabled = config.webhooksEnabled === 1;
-        const webhooksCheckbox = document.getElementById('webhooksEnabled');
+        const webhooksCheckbox = document.getElementById("webhooksEnabled");
         if (webhooksCheckbox) {
           webhooksCheckbox.checked = webhooksEnabled;
           toggleWebhooks(webhooksEnabled);
         }
       })
-      .catch(error => console.error('Error loading config:', error));
-    
+      .catch((error) => console.error("Error loading config:", error));
+
     // Switch to general section by default
-    switchSettingsSection('general');
+    switchSettingsSection("general");
   }
 }
-
