@@ -25,6 +25,9 @@ class I18n {
     if (this.locales[lang]) return;
     try {
       const response = await fetch(`./locales/${lang}.json`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       this.locales[lang] = await response.json();
     } catch (error) {
       console.error(`Failed to load locale: ${lang}`, error);
@@ -37,6 +40,12 @@ class I18n {
   t(key, params = {}) {
     const keys = key.split(".");
     let value = this.locales[this.currentLang] || this.locales[this.fallbackLang];
+
+    // Guard against both locales being undefined
+    if (!value) {
+      console.warn(`No locales loaded, returning key: ${key}`);
+      return key;
+    }
 
     for (const k of keys) {
       if (value && value[k]) {
