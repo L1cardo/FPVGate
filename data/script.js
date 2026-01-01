@@ -1013,11 +1013,11 @@ function addLap(lapStr) {
     cell2.innerHTML = i18n.t("race.gate1_table", { s: lapStr });
     cell3.innerHTML = "-";
   } else {
-    cell2.innerHTML = lapStr + i18n.t("race.seconds_short");
-    cell3.innerHTML = gap ? gap + i18n.t("race.seconds_short") : "-";
+    cell2.innerHTML = lapStr + i18n.t("race.table.seconds_short");
+    cell3.innerHTML = gap ? gap + i18n.t("race.table.seconds_short") : "-";
   }
 
-  cell4.innerHTML = totalTime + i18n.t("race.seconds_short");
+  cell4.innerHTML = totalTime + i18n.t("race.table.seconds_short");
 
   // Highlight fastest lap
   highlightFastestLap();
@@ -1107,7 +1107,7 @@ function startTimer() {
     let m = minutes < 10 ? "0" + minutes : minutes;
     let s = seconds < 10 ? "0" + seconds : seconds;
     let ms = millis < 10 ? "0" + millis : millis;
-    timer.innerHTML = `${m}:${s}:${ms}` + i18n.t("race.seconds_short");
+    timer.innerHTML = `${m}:${s}:${ms}` + i18n.t("race.table.seconds_short");
   }, 10);
 
   if (usbConnected && transportManager) {
@@ -1791,7 +1791,7 @@ function updateStatsBoxes() {
   } else {
     const fastest = Math.min(...validLaps);
     const fastestIndex = validLaps.indexOf(fastest) + 1; // +1 to account for skipped Gate 1
-    document.getElementById("statFastest").textContent = `${fastest.toFixed(2)}${i18n.t("race.seconds_short")}`;
+    document.getElementById("statFastest").textContent = `${fastest.toFixed(2)}${i18n.t("race.table.seconds_short")}`;
     document.getElementById("statFastestLapNo").textContent = i18n.t("race.lap_counter", { n: fastestIndex });
   }
 
@@ -1809,7 +1809,7 @@ function updateStatsBoxes() {
       }
     }
 
-    document.getElementById("statFastest3Consec").textContent = `${fastestConsecTime.toFixed(2)}${i18n.t("race.seconds_short")}`;
+    document.getElementById("statFastest3Consec").textContent = `${fastestConsecTime.toFixed(2)}${i18n.t("race.table.seconds_short")}`;
     const lapNums = `L${fastestConsecStart}-L${fastestConsecStart + 1}-L${fastestConsecStart + 2}`;
     document.getElementById("statFastest3ConsecLaps").textContent = lapNums;
   } else {
@@ -1824,7 +1824,7 @@ function updateStatsBoxes() {
     const sorted = [...validLaps].sort((a, b) => a - b);
     const mid = Math.floor(sorted.length / 2);
     const median = sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
-    document.getElementById("statMedian").textContent = median.toFixed(2) + i18n.t("race.seconds_short");
+    document.getElementById("statMedian").textContent = median.toFixed(2) + i18n.t("race.table.seconds_short");
   }
 
   // Best 3 Laps (sum of 3 fastest individual laps) - skip Gate 1
@@ -1837,7 +1837,7 @@ function updateStatsBoxes() {
       .map((l) => `L${l.index}`)
       .sort()
       .join(", ");
-    document.getElementById("statBest3").textContent = `${totalTime.toFixed(2)}${i18n.t("race.seconds_short")}`;
+    document.getElementById("statBest3").textContent = `${totalTime.toFixed(2)}${i18n.t("race.table.seconds_short")}`;
     document.getElementById("statBest3Laps").textContent = lapNumbers;
   } else {
     document.getElementById("statBest3").textContent = "--";
@@ -1855,7 +1855,7 @@ function renderLapHistory() {
   recentLaps.forEach((time, index) => {
     const lapNumber = startIndex + index + 1;
     const colorIndex = (startIndex + index) % barColors.length;
-    html += createBarItemWithColor(i18n.t("race.lap_counter", { n: lapNumber }), time, maxTime, time.toFixed(2) + i18n.t("race.seconds_short"), colorIndex);
+    html += createBarItemWithColor(i18n.t("race.lap_counter", { n: lapNumber }), time, maxTime, time.toFixed(2) + i18n.t("race.table.seconds_short"), colorIndex);
   });
   html += "</div>";
 
@@ -1890,9 +1890,9 @@ function renderFastestRound() {
   const maxTime = Math.max(lap1, lap2, lap3);
 
   let html = '<div class="analysis-bars">';
-  html += createBarItemWithColor(i18n.t("race.lap_counter", { n: bestStartIndex + 1 }), lap1, maxTime, `${lap1.toFixed(2)}${i18n.t("race.seconds_short")}`, 0);
-  html += createBarItemWithColor(i18n.t("race.lap_counter", { n: bestStartIndex + 2 }), lap2, maxTime, `${lap2.toFixed(2)}${i18n.t("race.seconds_short")}`, 1);
-  html += createBarItemWithColor(i18n.t("race.lap_counter", { n: bestStartIndex + 3 }), lap3, maxTime, `${lap3.toFixed(2)}${i18n.t("race.seconds_short")}`, 2);
+  html += createBarItemWithColor(i18n.t("race.lap_counter", { n: bestStartIndex + 1 }), lap1, maxTime, `${lap1.toFixed(2)}${i18n.t("race.table.seconds_short")}`, 0);
+  html += createBarItemWithColor(i18n.t("race.lap_counter", { n: bestStartIndex + 2 }), lap2, maxTime, `${lap2.toFixed(2)}${i18n.t("race.table.seconds_short")}`, 1);
+  html += createBarItemWithColor(i18n.t("race.lap_counter", { n: bestStartIndex + 3 }), lap3, maxTime, `${lap3.toFixed(2)}${i18n.t("race.table.seconds_short")}`, 2);
   html += "</div>";
   html += `<p style="text-align: center; margin-top: 16px; font-weight: bold; color: var(--primary-color);">${i18n.t("analysis.total", { n: bestTime.toFixed(2) })}</p>`;
 
@@ -2056,10 +2056,10 @@ function viewRaceDetails(index) {
   const totalTime = race.lapTimes.reduce((sum, t) => sum + t, 0) / 1000;
 
   document.getElementById("raceDetailsTitle").textContent = i18n.t("history.details_title_with_date", { date: dateStr });
-  document.getElementById("detailFastest").textContent = (race.fastestLap / 1000).toFixed(2) + i18n.t("race.seconds_short");
-  document.getElementById("detailMedian").textContent = (race.medianLap / 1000).toFixed(2) + i18n.t("race.seconds_short");
-  document.getElementById("detailBest3").textContent = (race.best3LapsTotal / 1000).toFixed(2) + i18n.t("race.seconds_short");
-  document.getElementById("detailTotalTime").textContent = totalTime.toFixed(2) + i18n.t("race.seconds_short");
+  document.getElementById("detailFastest").textContent = (race.fastestLap / 1000).toFixed(2) + i18n.t("race.table.seconds_short");
+  document.getElementById("detailMedian").textContent = (race.medianLap / 1000).toFixed(2) + i18n.t("race.table.seconds_short");
+  document.getElementById("detailBest3").textContent = (race.best3LapsTotal / 1000).toFixed(2) + i18n.t("race.table.seconds_short");
+  document.getElementById("detailTotalTime").textContent = totalTime.toFixed(2) + i18n.t("race.table.seconds_short");
 
   // Get the clicked race item element
   const raceItem = document.querySelector(`.race-item[data-race-index="${index}"]`);
@@ -2156,12 +2156,12 @@ function renderRaceTimeline(race) {
     }
 
     eventDiv.style.left = `${event.percentage}%`;
-    eventDiv.title = `${event.label} - ${event.time.toFixed(2)}` + i18n.t("race.seconds_short");
+    eventDiv.title = `${event.label} - ${event.time.toFixed(2)}` + i18n.t("race.table.seconds_short");
 
     eventDiv.innerHTML = `
       <div class="timeline-flag ${event.type}"></div>
       <div class="timeline-label">${event.label}</div>
-      <div class="timeline-time">${event.time.toFixed(2)}${i18n.t("race.seconds_short")}</div>
+      <div class="timeline-time">${event.time.toFixed(2)}${i18n.t("race.table.seconds_short")}</div>
     `;
 
     container.appendChild(eventDiv);
@@ -2179,7 +2179,7 @@ function renderRaceTimeline(race) {
       const lapTimeDiv = document.createElement("div");
       lapTimeDiv.className = "timeline-lap-time";
       lapTimeDiv.style.left = `${midPoint}%`;
-      lapTimeDiv.textContent = lapTime.toFixed(2) + i18n.t("race.seconds_short");
+      lapTimeDiv.textContent = lapTime.toFixed(2) + i18n.t("race.table.seconds_short");
       lapTimeDiv.title = i18n.t("history.timeline_gap", { prev: prevEvent.label, current: currentEvent.label });
       container.appendChild(lapTimeDiv);
     }
@@ -2380,14 +2380,14 @@ function renderDetailHistory() {
 
     // Add distance info if available: "Lap x - y/z m"
     if (hasTrackData && actualIndex > 0) {
-      label = `${time.toFixed(2)}${i18n.t("race.seconds_short")}\n${label} - ${perLapDistance.toFixed(0)}m`;
+      label = `${time.toFixed(2)}${i18n.t("race.table.seconds_short")}\n${label} - ${perLapDistance.toFixed(0)}m`;
     } else if (hasTrackData && actualIndex === 0) {
-      label = `${time.toFixed(2)}${i18n.t("race.seconds_short")}\n${i18n.t("history.gate1_start")}`;
+      label = `${time.toFixed(2)}${i18n.t("race.table.seconds_short")}\n${i18n.t("history.gate1_start")}`;
     } else if (actualIndex === 0) {
       label = i18n.t("race.gate1");
     }
 
-    const displayTime = hasTrackData ? "" : `${time.toFixed(2)}${i18n.t("race.seconds_short")}`; // Don't show time in bar if it's in label
+    const displayTime = hasTrackData ? "" : `${time.toFixed(2)}${i18n.t("race.table.seconds_short")}`; // Don't show time in bar if it's in label
     html += createBarItemWithColor(label, time, maxTime, displayTime, index);
   });
   html += "</div>";
@@ -2423,9 +2423,9 @@ function renderDetailFastestRound() {
   const maxTime = Math.max(lap1, lap2, lap3);
 
   let html = '<div class="analysis-bars">';
-  html += createBarItemWithColor(i18n.t("race.lap_counter", { n: bestStartIndex + 1 }), lap1, maxTime, `${lap1.toFixed(2)}${i18n.t("race.seconds_short")}`, 0);
-  html += createBarItemWithColor(i18n.t("race.lap_counter", { n: bestStartIndex + 2 }), lap2, maxTime, `${lap2.toFixed(2)}${i18n.t("race.seconds_short")}`, 1);
-  html += createBarItemWithColor(i18n.t("race.lap_counter", { n: bestStartIndex + 3 }), lap3, maxTime, `${lap3.toFixed(2)}${i18n.t("race.seconds_short")}`, 2);
+  html += createBarItemWithColor(i18n.t("race.lap_counter", { n: bestStartIndex + 1 }), lap1, maxTime, `${lap1.toFixed(2)}${i18n.t("race.table.seconds_short")}`, 0);
+  html += createBarItemWithColor(i18n.t("race.lap_counter", { n: bestStartIndex + 2 }), lap2, maxTime, `${lap2.toFixed(2)}${i18n.t("race.table.seconds_short")}`, 1);
+  html += createBarItemWithColor(i18n.t("race.lap_counter", { n: bestStartIndex + 3 }), lap3, maxTime, `${lap3.toFixed(2)}${i18n.t("race.table.seconds_short")}`, 2);
   html += "</div>";
   html += `<p style="text-align: center; margin-top: 16px; font-weight: bold; color: var(--primary-color);">${i18n.t("analysis.total", { n: bestTime.toFixed(2) })}</p>`;
 
@@ -3656,7 +3656,7 @@ function updateDistanceDisplay() {
     const m = minutes < 10 ? "0" + minutes : minutes;
     const s = seconds < 10 ? "0" + seconds : seconds;
     const ms = centiseconds < 10 ? "0" + centiseconds : centiseconds;
-    const lapTimeText = `${m}:${s}:${ms}` + i18n.t("race.seconds_short");
+    const lapTimeText = `${m}:${s}:${ms}` + i18n.t("race.table.seconds_short");
 
     lapText += ` - ${lapTimeText}`;
   }

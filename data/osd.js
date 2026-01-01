@@ -208,13 +208,13 @@ function startCurrentLapTimer() {
 
 function updateCurrentLapDisplay() {
   if (!raceRunning || !currentLapStartTime) {
-    currentLapTime.textContent = '00.00' + i18n.t('race.seconds_short');
+    currentLapTime.textContent = '00.00' + i18n.t('race.table.seconds_short');
     return;
   }
 
   const elapsed = Date.now() - currentLapStartTime;
   const seconds = (elapsed / 1000).toFixed(2);
-  currentLapTime.textContent = seconds + i18n.t('race.seconds_short');
+  currentLapTime.textContent = seconds + i18n.t('race.table.seconds_short');
 }
 
 // Handle race start from backend
@@ -277,7 +277,7 @@ function updateLapCounter() {
 // Update last lap
 function updateLastLap(lapTime) {
   
-  lastLapTime.textContent = lapTime + i18n.t('race.seconds_short');
+  lastLapTime.textContent = lapTime + i18n.t('race.table.seconds_short');
   // Highlight if it's the fastest
   const fastest = lapTimes.length > 0 ? Math.min(...lapTimes) : null;
   if (fastest && lapTime === fastest) {
@@ -299,7 +299,7 @@ function updateStats() {
   // Fastest Lap
   const fastest = Math.min(...lapTimes);
   
-  fastestLap.textContent = fastest.toFixed(2) + i18n.t('race.seconds_short');
+  fastestLap.textContent = fastest.toFixed(2) + i18n.t('race.table.seconds_short');
   // Fastest 3 Consecutive
   if (lapTimes.length >= 3) {
     let fastestConsecTime = Infinity;
@@ -311,7 +311,7 @@ function updateStats() {
       }
     }
     
-    fastest3Consec.textContent = fastestConsecTime.toFixed(2) + i18n.t('race.seconds_short');
+    fastest3Consec.textContent = fastestConsecTime.toFixed(2) + i18n.t('race.table.seconds_short');
   } else {
     fastest3Consec.textContent = '--';
   }
@@ -322,7 +322,7 @@ function updateStats() {
   const median = sorted.length % 2 === 0 
     ? (sorted[mid - 1] + sorted[mid]) / 2 
     : sorted[mid];
-  medianLap.textContent = median.toFixed(2) + i18n.t('race.seconds_short');
+  medianLap.textContent = median.toFixed(2) + i18n.t('race.table.seconds_short');
 }
 
 // Clear stats display
@@ -362,12 +362,12 @@ function updateLapsTable() {
     // Lap time
     const lapTimeCell = row.insertCell(1);
     
-    lapTimeCell.textContent = lapTime.toFixed(2) + i18n.t('race.seconds_short');
+    lapTimeCell.textContent = lapTime.toFixed(2) + i18n.t('race.table.seconds_short');
     // Gap to fastest
     const gapCell = row.insertCell(2);
     if (fastest && lapTime !== fastest) {
       const gap = (lapTime - fastest).toFixed(2);
-      gapCell.textContent = `+${gap}` + i18n.t('race.seconds_short');
+      gapCell.textContent = `+${gap}` + i18n.t('race.table.seconds_short');
     } else {
       gapCell.textContent = '--';
     }
