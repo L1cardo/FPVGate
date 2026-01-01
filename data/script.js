@@ -3372,7 +3372,7 @@ function runSelfTest() {
 
   // Show loading, hide results
   button.disabled = true;
-  button.textContent = i18n.t("diag.running");
+  button.textContent = i18n.t("settings.diagnostics.running");
   loadingDiv.style.display = "block";
   resultsDiv.style.display = "none";
 
@@ -3418,7 +3418,7 @@ function runSelfTest() {
         `
         <div style="margin-bottom: 20px; padding: 16px; background-color: var(--bg-secondary); border-radius: 8px; text-align: center;">
           <div style="font-size: 18px; font-weight: bold; margin-bottom: 8px; color: ${summaryColor};">
-            ${allPassed ? i18n.t("diag.all_passed") : i18n.t("diag.some_failed")}
+            ${allPassed ? i18n.t("settings.diagnostics.all_passed") : i18n.t("settings.diagnostics.some_failed")}
           </div>
           <div style="font-size: 14px; color: var(--secondary-color);">
             ${passedCount} / ${totalCount} tests passed
@@ -3431,20 +3431,20 @@ function runSelfTest() {
 
       // Re-enable button
       button.disabled = false;
-      button.textContent = i18n.t("diag.run_again");
+      button.textContent = i18n.t("settings.diagnostics.run_again");
     })
     .catch((error) => {
       console.error("Error running self-test:", error);
       loadingDiv.style.display = "none";
       resultsListDiv.innerHTML = `
         <div style="padding: 16px; background-color: rgba(255, 85, 85, 0.1); border-left: 4px solid #ff5555; border-radius: 4px;">
-          <div style="font-weight: bold; color: #ff5555; margin-bottom: 6px;">${i18n.t("diag.error_running")}</div>
+          <div style="font-weight: bold; color: #ff5555; margin-bottom: 6px;">${i18n.t("settings.diagnostics.error_running")}</div>
           <div style="font-size: 14px; color: var(--secondary-color);">${error.message}</div>
         </div>
       `;
       resultsDiv.style.display = "block";
       button.disabled = false;
-      button.textContent = i18n.t("diag.run_all");
+      button.textContent = i18n.t("settings.diagnostics.run_all");
     });
 }
 
@@ -3470,13 +3470,13 @@ function startSerialMonitor() {
   const button = document.getElementById("serialMonitorToggle");
   const monitor = document.getElementById("serialMonitor");
 
-  button.textContent = i18n.t("diag.stop_monitor");
+  button.textContent = i18n.t("settings.diagnostics.stop_monitor");
   button.style.backgroundColor = "#ff5555";
   serialMonitorActive = true;
   lastSeenTimestamp = 0;
 
   // Clear monitor and show starting message
-  monitor.innerHTML = `<div style="color: #4ade80;">${i18n.t("diag.monitor_started")}</div>`;
+  monitor.innerHTML = `<div style="color: #4ade80;">${i18n.t("settings.diagnostics.monitor_started")}</div>`;
 
   // Poll for new debug logs every 500ms
   serialMonitorPollInterval = setInterval(pollDebugLogs, 500);
@@ -3512,7 +3512,7 @@ function stopSerialMonitor() {
   const button = document.getElementById("serialMonitorToggle");
   const monitor = document.getElementById("serialMonitor");
 
-  button.textContent = i18n.t("diag.start_monitor");
+  button.textContent = i18n.t("settings.diagnostics.start_monitor");
   button.style.backgroundColor = "";
   serialMonitorActive = false;
 
@@ -3523,7 +3523,7 @@ function stopSerialMonitor() {
 
   const line = document.createElement("div");
   line.style.color = "#888";
-  line.textContent = i18n.t("diag.monitor_stopped");
+  line.textContent = i18n.t("settings.diagnostics.monitor_stopped");
   monitor.appendChild(line);
 }
 
@@ -3568,7 +3568,7 @@ function rebuildSerialMonitor() {
 function clearSerialMonitor() {
   const monitor = document.getElementById("serialMonitor");
   serialMonitorBuffer = [];
-  monitor.innerHTML = serialMonitorActive ? `<div style="color: #888;">${i18n.t("diag.monitor_cleared")}</div>` : `<div style="color: #888;">${i18n.t("diag.monitor_stopped")}</div>`;
+  monitor.innerHTML = serialMonitorActive ? `<div style="color: #888;">${i18n.t("settings.diagnostics.monitor_cleared")}</div>` : `<div style="color: #888;">${i18n.t("settings.diagnostics.monitor_stopped")}</div>`;
 }
 
 // ============================================

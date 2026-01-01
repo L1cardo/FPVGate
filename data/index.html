@@ -827,36 +827,36 @@
             <div id="settings-diagnostics" class="settings-section">
               <h2 data-i18n="settings.diagnostics.title">System Diagnostics</h2>
 
-              <h3 style="margin-top: 0" data-i18n="diag.hardware_tests">Hardware Tests</h3>
+              <h3 style="margin-top: 0" data-i18n="settings.diagnostics.hardware_tests">Hardware Tests</h3>
               <div style="margin-bottom: 16px; padding: 12px; background-color: var(--bg-secondary); border-radius: 8px; font-size: 14px">
-                <p style="margin: 0" data-i18n="diag.description">Run comprehensive hardware and software tests to verify all FPVGate components are functioning correctly.</p>
+                <p style="margin: 0" data-i18n="settings.diagnostics.description">Run comprehensive hardware and software tests to verify all FPVGate components are functioning correctly.</p>
               </div>
 
-              <button id="runTestsButton" onclick="runSelfTest()" style="width: 100%; padding: 12px; margin-bottom: 16px; background-color: var(--accent-color)" data-i18n="diag.run_test">Run System Self-Test</button>
+              <button id="runTestsButton" onclick="runSelfTest()" style="width: 100%; padding: 12px; margin-bottom: 16px; background-color: var(--accent-color)" data-i18n="settings.diagnostics.run_test">Run System Self-Test</button>
 
               <div id="testResults" style="display: none; margin-bottom: 16px">
-                <h4 style="margin-bottom: 12px; color: var(--primary-color)" data-i18n="diag.results_title">Test Results</h4>
+                <h4 style="margin-bottom: 12px; color: var(--primary-color)" data-i18n="settings.diagnostics.results_title">Test Results</h4>
                 <div id="testResultsList"></div>
               </div>
 
               <div id="testLoading" style="display: none; text-align: center; padding: 24px; background-color: var(--bg-secondary); border-radius: 8px; margin-bottom: 16px">
-                <p style="margin: 0; font-size: 14px; color: var(--primary-color)" data-i18n="diag.running">Running tests...</p>
+                <p style="margin: 0; font-size: 14px; color: var(--primary-color)" data-i18n="settings.diagnostics.running">Running tests...</p>
               </div>
 
-              <h3 data-i18n="diag.monitor_title">System Monitor</h3>
+              <h3 data-i18n="settings.diagnostics.monitor_title">System Monitor</h3>
               <div style="margin-bottom: 8px; padding: 12px; background-color: var(--bg-secondary); border-radius: 8px; font-size: 14px">
-                <p style="margin: 0" data-i18n="diag.monitor_description">Monitor real-time system events including WiFi status, race events, RSSI changes, and webhooks.</p>
+                <p style="margin: 0" data-i18n="settings.diagnostics.monitor_description">Monitor real-time system events including WiFi status, race events, RSSI changes, and webhooks.</p>
               </div>
               <div style="margin-bottom: 12px; display: flex; gap: 8px; align-items: center">
-                <button id="serialMonitorToggle" onclick="toggleSerialMonitor()" style="padding: 8px 16px; background-color: var(--accent-color)" data-i18n="diag.start_monitor">Start Monitor</button>
-                <button onclick="clearSerialMonitor()" style="padding: 8px 16px; background-color: var(--secondary-color)" data-i18n="diag.clear">Clear</button>
+                <button id="serialMonitorToggle" onclick="toggleSerialMonitor()" style="padding: 8px 16px; background-color: var(--accent-color)" data-i18n="settings.diagnostics.start_monitor">Start Monitor</button>
+                <button onclick="clearSerialMonitor()" style="padding: 8px 16px; background-color: var(--secondary-color)" data-i18n="settings.diagnostics.clear">Clear</button>
                 <label style="display: flex; align-items: center; gap: 6px; margin-left: auto; font-size: 14px">
                   <input type="checkbox" id="serialAutoScroll" checked style="margin: 0" />
-                  <span data-i18n="diag.auto_scroll">Auto-scroll</span>
+                  <span data-i18n="settings.diagnostics.auto_scroll">Auto-scroll</span>
                 </label>
               </div>
               <div id="serialMonitor" style="height: 300px; overflow-y: auto; background-color: #1a1a1a; color: #00ff00; padding: 12px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.4; border: 1px solid var(--border-color)">
-                <div style="color: #888" data-i18n="diag.monitor_stopped">System monitor stopped. Click "Start Monitor" to begin.</div>
+                <div style="color: #888" data-i18n="settings.diagnostics.monitor_stopped">System monitor stopped. Click "Start Monitor" to begin.</div>
               </div>
             </div>
           </div>
